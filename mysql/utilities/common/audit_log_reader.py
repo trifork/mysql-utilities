@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2012, 2016, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2012, 2014, Oracle and/or its affiliates. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,11 +27,10 @@ from mysql.utilities.exception import UtilError
 # Import appropriate XML exception to be compatible with python 2.6.
 try:
     # Exception only available from python 2.7 (i.e., ElementTree 1.3)
-    # pylint: disable=E0611,C0411
+    # pylint: disable=E0611
     from xml.etree.ElementTree import ParseError
 except ImportError:
     # Instead use ExpatError for earlier python versions.
-    # pylint: disable=C0411
     from xml.parsers.expat import ExpatError as ParseError
 
 
@@ -93,8 +92,10 @@ class AuditLogReader(object):
     def _validXML(line):
         """Check if line is a valid XML element, apart from audit records.
         """
-        return (('<?xml ' in line) or
-                ('<AUDIT>' in line) or ('</AUDIT>' in line))
+        if ('<?xml ' in line) or ('<AUDIT>' in line) or ('</AUDIT>' in line):
+            return True
+        else:
+            return False
 
     def get_next_record(self):
         """Get the next audit log record.
@@ -113,17 +114,16 @@ class AuditLogReader(object):
                 multiline = True
                 next_line = line
                 continue
-            elif (line.lstrip().startswith('<AUDIT_RECORD') and
-                  not line.endswith('/>\n')):
+            elif (line.lstrip().startswith('<AUDIT_RECORD')
+                  and not line.endswith('/>\n')):
                 # Found (first) record line in the old format.
                 next_line = "{0} ".format(line.strip('\n'))
                 if not line.endswith('/>\n'):
                     multiline = True
                     continue
             elif multiline:
-                if ((new_format and
-                     line.strip().endswith('</AUDIT_RECORD>')) or
-                        (not new_format and line.endswith('/>\n'))):
+                if ((new_format and line.strip().endswith('</AUDIT_RECORD>'))
+                        or (not new_format and line.endswith('/>\n'))):
                     # Detect end of record in the old and new format and
                     # append last record line.
                     next_line += line

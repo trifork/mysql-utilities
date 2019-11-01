@@ -68,13 +68,13 @@ class RPLSynchronizer(object):
                                       options)
         self._slaves = self._rpl_topology.get_slaves_dict()
 
-        # Verify all the servers in the topology has or does not sql_mode set
+        # Verify all the servers in the topology has or does not sql_mode set 
         # to 'ANSI_QUOTES'.
         match_group, unmatch_group = \
             self._rpl_topology.get_servers_with_different_sql_mode(
                 'ANSI_QUOTES'
             )
-        # List and Raise an error if just some of the server has sql_mode set
+        # List and Raise an error if just some of the server has sql_mode set 
         # to 'ANSI_QUOTES' instead of all or none.
         if match_group and unmatch_group:
             sql_mode = match_group[0].select_variable("SQL_MODE")
@@ -185,7 +185,7 @@ class RPLSynchronizer(object):
             for any_priv_tuple in master_priv:
                 has_privilege = any(
                     [user_obj.has_privilege('*', '*', priv)
-                     for priv in any_priv_tuple]
+                        for priv in any_priv_tuple]
                 )
                 if not has_privilege:
                     raise UtilError(ERROR_USER_WITHOUT_PRIVILEGES.format(
@@ -203,7 +203,7 @@ class RPLSynchronizer(object):
             for any_priv_tuple in slave_priv:
                 has_privilege = any(
                     [user_obj.has_privilege('*', '*', priv)
-                     for priv in any_priv_tuple]
+                        for priv in any_priv_tuple]
                 )
                 if not has_privilege:
                     raise UtilError(
@@ -313,8 +313,8 @@ class RPLSynchronizer(object):
                         print("# Slave '{0}':".format(slave_key))
                         filters_map = self._slaves_rpl_filters[slave_key]
                         for rpl_filter in filters_map:
-                            if (rpl_filter.startswith('replicate') and
-                                    filters_map[rpl_filter]):
+                            if (rpl_filter.startswith('replicate')
+                                    and filters_map[rpl_filter]):
                                 print("#   - {0}: {1}".format(
                                     rpl_filter,
                                     ', '.join(filters_map[rpl_filter])
@@ -377,26 +377,26 @@ class RPLSynchronizer(object):
                         return False
                     else:
                         return True
-                elif (rpl_filter['replicate_ignore_db'] and
-                      obj_name in rpl_filter['replicate_ignore_db']):
+                elif (rpl_filter['replicate_ignore_db']
+                        and obj_name in rpl_filter['replicate_ignore_db']):
                     return True
             else:
-                if (rpl_filter['replicate_do_table'] and
-                        obj_name in rpl_filter['replicate_do_table']):
+                if (rpl_filter['replicate_do_table']
+                        and obj_name in rpl_filter['replicate_do_table']):
                     return False
-                if (rpl_filter['replicate_ignore_table'] and
-                        obj_name in rpl_filter['replicate_ignore_table']):
+                if (rpl_filter['replicate_ignore_table']
+                        and obj_name in rpl_filter['replicate_ignore_table']):
                     return True
-                if (rpl_filter['replicate_wild_do_table'] and
-                        match_regexp(obj_name,
-                                     rpl_filter['regexp_do_table'])):
+                if (rpl_filter['replicate_wild_do_table']
+                        and match_regexp(obj_name,
+                                         rpl_filter['regexp_do_table'])):
                     return False
-                if (rpl_filter['replicate_wild_ignore_table'] and
-                        match_regexp(obj_name,
-                                     rpl_filter['regexp_ignore_table'])):
+                if (rpl_filter['replicate_wild_ignore_table']
+                        and match_regexp(obj_name,
+                                         rpl_filter['regexp_ignore_table'])):
                     return True
-                if (rpl_filter['replicate_do_table'] or
-                        rpl_filter['replicate_wild_do_table']):
+                if (rpl_filter['replicate_do_table']
+                        or rpl_filter['replicate_wild_do_table']):
                     return True
 
         # Do not filter replication for object (if no filter rule matched).
@@ -797,8 +797,7 @@ class RPLSynchronizer(object):
                 )
 
                 last_exec_gtid = self._compute_sync_point(
-                    master_uuid=master_uuid
-                )
+                        master_uuid=master_uuid)
                 if self._verbosity > 2:
                     print("#   Sync point GTID: {0}".format(last_exec_gtid))
 
@@ -977,7 +976,7 @@ class RPLSynchronizer(object):
             dbs_not_in_base_srv = slave_dbs - base_server_dbs
             filtered_dbs = set(
                 [db for db in dbs_not_in_base_srv
-                 if self._is_rpl_filtered(db, slave=self._base_server_key)]
+                    if self._is_rpl_filtered(db, slave=self._base_server_key)]
             )
             dbs_not_in_base_srv -= filtered_dbs
             for db in filtered_dbs:
@@ -994,7 +993,6 @@ class RPLSynchronizer(object):
         filter_srv = None if self._get_master() else self._base_server_key
 
         # Check data consistency for each table on the base server.
-        # pylint: disable=R0101
         for db_name in base_server_dbs:
             # Skip database if filtered by defined replication rules.
             if self._is_rpl_filtered(db_name, slave=filter_srv):
@@ -1020,8 +1018,8 @@ class RPLSynchronizer(object):
                         self._base_server, self._get_slave(slave_key),
                         db_name, db_name, False, options)
                     # Process tables to include/exclude from check (on slaves).
-                    if (data_to_include and db_name in data_to_include and
-                            data_to_include[db_name]):
+                    if (data_to_include and db_name in data_to_include
+                            and data_to_include[db_name]):
                         in_both = [
                             obj_row for obj_row in in_both
                             if obj_row[1][0] in data_to_include[db_name]
@@ -1034,8 +1032,8 @@ class RPLSynchronizer(object):
                             obj_row for obj_row in not_in_basesrv
                             if obj_row[1][0] in data_to_include[db_name]
                         ]
-                    if (data_to_exclude and db_name in data_to_exclude and
-                            data_to_exclude[db_name]):
+                    if (data_to_exclude and db_name in data_to_exclude
+                            and data_to_exclude[db_name]):
                         in_both = [
                             obj_row for obj_row in in_both
                             if obj_row[1][0] not in data_to_exclude[db_name]
@@ -1086,22 +1084,20 @@ class RPLSynchronizer(object):
                     obj_name = db_obj[1][0]
                     # Process tables to include/exclude from check (on base
                     # server).
-                    if (data_to_include and db_name in data_to_include and
-                            data_to_include[db_name] and
-                            obj_name not in data_to_include[db_name]):
+                    if (data_to_include and data_to_include[db_name]
+                            and obj_name not in data_to_include[db_name]):
                         # Skip to the next object if not in data to include.
                         continue
-                    if (data_to_exclude and db_name in data_to_exclude and
-                            data_to_exclude[db_name] and
-                            obj_name in data_to_exclude[db_name]):
+                    if (data_to_exclude and data_to_exclude[db_name]
+                            and obj_name in data_to_exclude[db_name]):
                         # Skip to the next object if in data to exclude.
                         continue
                     checksum_task = []
                     # Check object data on all valid slaves.
                     for slave_key in slaves_to_check:
                         # Skip table if filtered by defined replication rules.
-                        if (obj_type == 'TABLE' and
-                                self._is_rpl_filtered(db_name, obj_name,
+                        if (obj_type == 'TABLE'
+                            and self._is_rpl_filtered(db_name, obj_name,
                                                       slave=slave_key)):
                             print("# [SKIP] Table '{0}' check for '{1}' - "
                                   "filtered by replication rule."

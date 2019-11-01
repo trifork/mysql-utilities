@@ -183,10 +183,9 @@ def clone_server(conn_val, options):
         version = tuple([int(digit) for digit in version_str])
     else:
         version = None
-    if mysqld_options is not None and (
-            "--skip-innodb" in mysqld_options or
-            "--innodb" in mysqld_options) and version is not None and \
-            version >= (5, 7, 5):
+    if mysqld_options is not None and ("--skip-innodb" in mysqld_options or
+       "--innodb" in mysqld_options) and version is not None and \
+       version >= (5, 7, 5):
         print("# WARNING: {0}".format(WARN_OPT_SKIP_INNODB))
 
     if not quiet:
@@ -223,7 +222,8 @@ def clone_server(conn_val, options):
         locations.extend([("mysql_system_tables.sql", system_tables),
                           ("mysql_system_tables_data.sql", system_tables_data),
                           ("mysql_test_data_timezone.sql", test_data_timezone),
-                          ("fill_help_tables.sql", help_data), ])
+                          ("fill_help_tables.sql", help_data),
+                          ])
 
     if verbosity >= 3 and not quiet:
         print "# Location of files:"
@@ -240,7 +240,6 @@ def clone_server(conn_val, options):
     fnull = open(os.devnull, 'w')
 
     # For MySQL versions before 5.7.6, use regular bootstrap procedure.
-    # pylint: disable=R0101
     if version < (5, 7, 6):
         # Get bootstrap SQL statements
         sql = list()
@@ -264,15 +263,14 @@ def clone_server(conn_val, options):
                 # Don't fail when InnoDB is turned off (Bug#16369955)
                 # (Ugly hack)
                 if (sqlfile == system_tables and
-                        "SET @sql_mode_orig==@@SES" in line and
-                        innodb_disabled):
+                   "SET @sql_mode_orig==@@SES" in line and innodb_disabled):
                     for line in lines:
                         if 'SET SESSION sql_mode=@@sql' in line:
                             break
                 sql.append(line)
 
         # Bootstap to setup mysql tables
-        cmd_opts = [
+        cmd = [
             mysqld_path,
             "--no-defaults",
             "--bootstrap",
@@ -281,18 +279,16 @@ def clone_server(conn_val, options):
         ]
 
         if verbosity >= 1 and not quiet:
-            proc = subprocess.Popen(cmd_opts, shell=False,
-                                    stdin=subprocess.PIPE)
+            proc = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE)
         else:
-            proc = subprocess.Popen(cmd_opts, shell=False,
-                                    stdin=subprocess.PIPE,
+            proc = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE,
                                     stdout=fnull, stderr=fnull)
         proc.communicate('\n'.join(sql))
 
     # From 5.7.6 onwards, mysql_install_db has been replaced by mysqld and
     # the --initialize option
     else:
-        cmd_opts = [
+        cmd = [
             mysqld_path,
             "--no-defaults",
             "--initialize-insecure=on",
@@ -300,11 +296,9 @@ def clone_server(conn_val, options):
             "--basedir={0}".format(os.path.abspath(mysql_basedir))
         ]
         if verbosity >= 1 and not quiet:
-            proc = subprocess.Popen(cmd_opts, shell=False,
-                                    stdin=subprocess.PIPE)
+            proc = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE)
         else:
-            proc = subprocess.Popen(cmd_opts, shell=False,
-                                    stdin=subprocess.PIPE,
+            proc = subprocess.Popen(cmd, shell=False, stdin=subprocess.PIPE,
                                     stdout=fnull, stderr=fnull)
     # Wait for subprocess to finish
     res = proc.wait()
@@ -314,9 +308,9 @@ def clone_server(conn_val, options):
             try:
                 os.kill(proc.pid, subprocess.signal.SIGTERM)
             except OSError as error:
-                if not str(error.strerror).startswith("No such process"):
-                    raise UtilError("Failed to complete initialization of "
-                                    "clone. Pid = '{0}'".format(proc.pid))
+                if not error.strerror.startswith("No such process"):
+                    raise UtilError("Failed to kill process with pid '{0}'"
+                                    "".format(proc.pid))
         else:
             ret_code = subprocess.call("taskkill /F /T /PID "
                                        "{0}".format(proc.pid), shell=True)
@@ -324,9 +318,9 @@ def clone_server(conn_val, options):
             # return code 0 means it was successful and 128 means it tried
             # to kill a process that doesn't exist
             if ret_code not in (0, 128):
-                raise UtilError("Failed to complete initialization of clone."
-                                " Pid = {0}. Return code {1}"
-                                "".format(proc.pid, ret_code))
+                raise UtilError("Failed to kill process with pid '{0}'. "
+                                "Return code {1}".format(proc.pid,
+                                                         ret_code))
 
     # Drop the bootstrap file
     if os.path.isfile("bootstrap.sql"):
@@ -480,16 +474,16 @@ def clone_server(conn_val, options):
     if root_pass:
         if not quiet:
             print "# Setting the root password..."
-        cmd_opts = [mysqladmin_path, '--no-defaults', '-v', '-uroot']
+        cmd = [mysqladmin_path, '--no-defaults', '-v', '-uroot']
         if os.name == "posix":
-            cmd_opts.append("--socket={0}".format(new_sock))
+            cmd.append("--socket={0}".format(new_sock))
         else:
-            cmd_opts.append("--port={0}".format(int(new_port)))
-        cmd_opts.extend(["password", root_pass])
+            cmd.append("--port={0}".format(int(new_port)))
+        cmd.extend(["password", root_pass])
         if verbosity > 0 and not quiet:
-            proc = subprocess.Popen(cmd_opts, shell=False)
+            proc = subprocess.Popen(cmd, shell=False)
         else:
-            proc = subprocess.Popen(cmd_opts, shell=False,
+            proc = subprocess.Popen(cmd, shell=False,
                                     stdout=fnull, stderr=fnull)
 
         # Wait for subprocess to finish
@@ -526,6 +520,6 @@ def user_change_as_root(options):
     Returns bool - user context must occur
     """
     user = options.get('user', 'root')
-    if not user or os.name != 'posix':
+    if not user or not os.name == 'posix':
         return False
-    return getpass.getuser() != user and getpass.getuser() == 'root'
+    return not getpass.getuser() == user and getpass.getuser() == 'root'

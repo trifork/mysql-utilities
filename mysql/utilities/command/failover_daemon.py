@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013, 2016, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2013, 2015, Oracle and/or its affiliates. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -231,7 +231,7 @@ class FailoverDaemon(Daemon):
         """Tries to reconnect to the master
 
         This method tries to reconnect to the master and if connection fails
-        after 3 attempts, returns False.
+        after 3 attemps, returns False.
         """
         if self.master and self.master.is_alive():
             return True
@@ -509,7 +509,7 @@ class FailoverDaemon(Daemon):
                         failover = False  # Master is now connected again
                     if failover:
                         self._report("Failed to reconnect to the master after "
-                                     "3 attempts.", logging.INFO)
+                                     "3 attemps.", logging.INFO)
 
             if failover:
                 self._report("Master is confirmed to be down or "
@@ -532,24 +532,16 @@ class FailoverDaemon(Daemon):
                                                  "not enabled. ")
                     self._report(msg, logging.CRITICAL, False)
                     # Execute post failover script
-                    try:
-                        self.rpl.topology.run_script(post_fail, False,
-                                                     [old_host, old_port])
-                    except Exception as err:  # pylint: disable=W0703
-                        self._report("# Post fail script failed! {0}"
-                                     "".format(err), level=logging.ERROR)
+                    self.rpl.topology.run_script(post_fail, False,
+                                                 [old_host, old_port])
                     raise UtilRplError(msg, _FAILOVER_ERRNO)
                 if not res:
                     msg = _FAILOVER_ERROR.format("An error was encountered "
                                                  "during failover. ")
                     self._report(msg, logging.CRITICAL, False)
                     # Execute post failover script
-                    try:
-                        self.rpl.topology.run_script(post_fail, False,
-                                                     [old_host, old_port])
-                    except Exception as err:  # pylint: disable=W0703
-                        self._report("# Post fail script failed! {0}"
-                                     "".format(err), level=logging.ERROR)
+                    self.rpl.topology.run_script(post_fail, False,
+                                                 [old_host, old_port])
                     raise UtilRplError(msg)
                 self.rpl.master = self.rpl.topology.master
                 self.master = self.rpl.master
@@ -560,14 +552,10 @@ class FailoverDaemon(Daemon):
                 time.sleep(5)
                 failover = False
                 # Execute post failover script
-                try:
-                    self.rpl.topology.run_script(post_fail, False,
-                                                 [old_host, old_port,
-                                                  self.rpl.master.host,
-                                                  self.rpl.master.port])
-                except Exception as err:  # pylint: disable=W0703
-                    self._report("# Post fail script failed! {0}"
-                                 "".format(err), level=logging.ERROR)
+                self.rpl.topology.run_script(post_fail, False,
+                                             [old_host, old_port,
+                                              self.rpl.master.host,
+                                              self.rpl.master.port])
 
                 # Unregister existing instances from slaves
                 self._report("Unregistering existing instances from slaves.",
@@ -582,8 +570,8 @@ class FailoverDaemon(Daemon):
                 failover_mode = self.register_instance()
 
             # discover slaves if option was specified at startup
-            elif (self.options.get("discover", None) is not None and
-                  not first_pass):
+            elif (self.options.get("discover", None) is not None
+                  and not first_pass):
                 # Force refresh of health list if new slaves found
                 if self.rpl.topology.discover_slaves():
                     self.list_data = None
@@ -680,19 +668,3 @@ class FailoverDaemon(Daemon):
 
         # Start the daemon
         return super(FailoverDaemon, self).start(detach_process)
-
-    def cleanup(self):
-        """Controlled cleanup for the daemon.
-
-        It will unregister the failover_console table.
-        """
-        # if master is not alive, try connecting to it
-        if not self.master.is_alive():
-            self.master.connect()
-        try:
-            self.master.exec_query(_DELETE_FC_TABLE.format(self.master.host,
-                                                           self.master.port))
-            self._report("Master entry in the failover_console"
-                         " table was deleted.", logging.INFO, False)
-        except:
-            pass

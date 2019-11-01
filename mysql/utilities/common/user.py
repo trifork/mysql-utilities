@@ -77,12 +77,8 @@ def parse_user_host(user_name):
     """Parse user, passwd, host, port from user:passwd@host
 
     user_name[in]      MySQL user string (user:passwd@host)
-
-    returns - tuple - user, passwd, host
     """
-    # Check for anonymous user. If not, continue.
-    if user_name == "''@'%'":
-        return ('', None, '%')
+
     no_ticks = user_name.replace("'", "")
     try:
         conn_values = parse_connection(no_ticks)
@@ -113,7 +109,7 @@ def grant_proxy_ssl_privileges(server, user, passw, at='localhost',
     Note: Raises UtilError on any Error.
     """
 
-    grant_parts = [
+    grant = [
         "GRANT", privs,
         "ON *.*",
         "TO '{0}'@'{1}'".format(user, at),
@@ -123,7 +119,7 @@ def grant_proxy_ssl_privileges(server, user, passw, at='localhost',
     ]
 
     try:
-        server.exec_query(" ".join(grant_parts))
+        server.exec_query(" ".join(grant))
     except UtilDBError as err:
         raise UtilError("Cannot create new user {0} at {1}:{2} reason:"
                         "{3}".format(user, server.host, server.port,
@@ -242,11 +238,10 @@ class User(object):
         user, passwd, host = None, None, None
         if new_user:
             user, passwd, host = parse_user_host(new_user)
-            user_host_str = "'{0}'@'{1}' ".format(user, host)
+            query_str += "'%s'@'%s' " % (user, host)
         else:
-            user_host_str = "'{0}'@'{1}' ".format(self.user, self.host)
+            query_str += "'%s'@'%s' " % (self.user, self.host)
             passwd = self.passwd
-        query_str += user_host_str
 
         if passwd and authentication:
             print("WARNING: using a password and an authentication plugin is "
@@ -471,8 +466,7 @@ class User(object):
 
         return grants
 
-    def has_privilege(self, db, obj, access, allow_skip_grant_tables=True,
-                      globals_privs=True):
+    def has_privilege(self, db, obj, access, allow_skip_grant_tables=True):
         """Check to see user has a specific access to a db.object.
 
         db[in]             Name of database
@@ -481,8 +475,6 @@ class User(object):
         allow_skip_grant_tables[in]  If True, allow silent failure for
                            cases where the server is started with
                            --skip-grant-tables. Default=True
-        globals_privs[in]  Include global privileges in clone (i.e. user@%)
-                           Default is True
 
         Returns True if user has access, False if not
         """
@@ -495,7 +487,7 @@ class User(object):
         access = access.upper()
 
         # Get grant dictionary
-        grant_dict = self.get_grants(globals_privs=globals_privs, as_dict=True)
+        grant_dict = self.get_grants(globals_privs=True, as_dict=True)
 
         # If self has all privileges for all databases, no need to check,
         # simply return True
@@ -518,18 +510,18 @@ class User(object):
         # OPTION privilege.
         # Check server wide grants.
         elif (access in grant_dict['*']['*'] or
-              "ALL PRIVILEGES" in grant_dict['*']['*'] and
-              access != "GRANT OPTION"):
+                "ALL PRIVILEGES" in grant_dict['*']['*'] and
+                access != "GRANT OPTION"):
             return True
         # Check database level grants.
         elif (access in grant_dict[db]['*'] or
-              "ALL PRIVILEGES" in grant_dict[db]['*'] and
-              access != "GRANT OPTION"):
+                "ALL PRIVILEGES" in grant_dict[db]['*'] and
+                access != "GRANT OPTION"):
             return True
         # Check object level grants.
         elif (access in grant_dict[db][obj] or
-              "ALL PRIVILEGES" in grant_dict[db][obj] and
-              access != "GRANT OPTION"):
+                "ALL PRIVILEGES" in grant_dict[db][obj] and
+                access != "GRANT OPTION"):
             return True
         else:
             return False
@@ -635,13 +627,13 @@ class User(object):
             print grant_tuple[0]
 
     def _get_authentication(self):
-        """ Return authentication string """
         res = self.server1.exec_query("SELECT plugin FROM mysql.user "
                                       "WHERE user='{0}' and host='{1}'"
                                       "".format(self.user, self.host))
         if res == [] or res[0][0] == 'mysql_native_password':
             return None
         return res[0][0]
+
 
     def clone(self, new_user, destination=None, globals_privs=False):
         """Clone the current user to the new user

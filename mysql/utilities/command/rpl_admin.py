@@ -40,7 +40,6 @@ from mysql.utilities.common.format import print_list
 from mysql.utilities.common.topology import Topology
 from mysql.utilities.command.failover_console import FailoverConsole
 from mysql.utilities.command.failover_daemon import FailoverDaemon
-from mysql.utilities.common.server import check_hostname_alias, get_port
 
 _VALID_COMMANDS_TEXT = """
 Available Commands:
@@ -214,7 +213,6 @@ def skip_slaves_trx(gtid_set, slaves_cnx_val, options):
 
     # Skip transactions for the given list of slaves.
     print("#")
-    # pylint: disable=R0101
     if has_gtid_to_skip:
         for host, port, gtids_to_skip in gtids_by_slave:
             if gtids_to_skip:
@@ -424,7 +422,7 @@ class RplCommands(object):
                 if host_port:
                     host = host_port[0]
                 if (not host or uses_ip != hostname_is_ip(slave.host) or
-                        uses_ip != hostname_is_ip(host)):
+                   uses_ip != hostname_is_ip(host)):
                     return False
         return True
 
@@ -438,13 +436,13 @@ class RplCommands(object):
         """
         # Check new master is not actual master - need valid candidate
         candidate = self.options.get("new_master", None)
-        if check_hostname_alias(self.master_vals, candidate):
-            err_msg = ERROR_SAME_MASTER.format(
-                n_master_host=candidate['host'],
-                n_master_port=candidate['port'],
-                master_host=self.master_vals['host'],
-                master_port=self.master_vals['port']
-            )
+        if (self.topology.master.is_alias(candidate['host']) and
+           self.master_vals['port'] == candidate['port']):
+            err_msg = ERROR_SAME_MASTER.format(candidate['host'],
+                                               candidate['port'],
+                                               self.master_vals['host'],
+                                               self.master_vals['port'])
+            self._report(err_msg, logging.WARN)
             self._report(err_msg, logging.CRITICAL)
             raise UtilRplError(err_msg)
 
@@ -488,20 +486,11 @@ class RplCommands(object):
             print("# WARNING: {0}".format(warn_msg))
             self._report(warn_msg, logging.WARN, False)
 
-        # Fix ports before continuing.
-        candidate_port = candidate['port']
-        if os.name == "posix":
-            if self.topology.master.socket:
-                self.master_vals['port'] = self.topology.master.port
-            # Requires quick connection to server to get correct port
-            port = get_port(candidate)
-            if port:
-                candidate_port = port
-
-        self._report(" ".join(
-            ["# Performing switchover from master at",
-             "%s:%s" % (self.master_vals['host'], self.master_vals['port']),
-             "to slave at %s:%s." % (candidate['host'], candidate_port)]))
+        self._report(" ".join(["# Performing switchover from master at",
+                     "%s:%s" % (self.master_vals['host'],
+                                self.master_vals['port']),
+                               "to slave at %s:%s." %
+                               (candidate['host'], candidate['port'])]))
         if not self.topology.switchover(candidate):
             self._report("# Errors found. Switchover aborted.", logging.ERROR)
             return False
@@ -534,13 +523,12 @@ class RplCommands(object):
                          "then slaves list.")
         best_slave = self.topology.find_best_slave(candidates)
         if best_slave is None:
-            self._report("ERROR: No slave found that meets eligibility "
+            self._report("ERROR: No slave found that meets eligilibility "
                          "requirements.", logging.ERROR)
             return
 
-        # Get the correct port
-        self._report("# Best slave found is located on {0}:{1}."
-                     "".format(best_slave['host'], best_slave['port']))
+        self._report("# Best slave found is located on %s:%s." %
+                     (best_slave['host'], best_slave['port']))
 
     def _failover(self, strict=False, options=None):
         """Perform failover
@@ -897,10 +885,9 @@ class RplCommands(object):
                 else:
                     self._report("# Spawning external script for failover "
                                  "checking.")
-                    script_res = execute_script(exec_fail, None,
-                                                [old_host, old_port],
-                                                self.verbose)
-                    if script_res == 0:
+                    res = execute_script(exec_fail, None,
+                                         [old_host, old_port], self.verbose)
+                    if res == 0:
                         self._report("# Failover check script completed Ok. "
                                      "Failover averted.")
                     else:
@@ -979,24 +966,16 @@ class RplCommands(object):
                                              "failover is not enabled. ")
                     self._report(msg, logging.CRITICAL, False)
                     # Execute post failover script
-                    try:
-                        self.topology.run_script(post_fail, False,
-                                                 [old_host, old_port])
-                    except Exception as err:  # pylint: disable=W0703
-                        self._report("# Post fail script failed! {0}"
-                                     "".format(err), level=logging.ERROR)
+                    self.topology.run_script(post_fail, False,
+                                             [old_host, old_port])
                     raise UtilRplError(msg, _FAILOVER_ERRNO)
                 if not res:
                     msg = _FAILOVER_ERROR % ("An error was encountered "
                                              "during failover. ")
                     self._report(msg, logging.CRITICAL, False)
                     # Execute post failover script
-                    try:
-                        self.topology.run_script(post_fail, False,
-                                                 [old_host, old_port])
-                    except Exception as err:  # pylint: disable=W0703
-                        self._report("# Post fail script failed! {0}"
-                                     "".format(err), level=logging.ERROR)
+                    self.topology.run_script(post_fail, False,
+                                             [old_host, old_port])
                     raise UtilRplError(msg)
                 self.master = self.topology.master
                 console.master = self.master
@@ -1008,14 +987,9 @@ class RplCommands(object):
                 console.clear()
                 failover = False
                 # Execute post failover script
-                try:
-                    self.topology.run_script(post_fail, False,
-                                             [old_host, old_port,
-                                              self.master.host,
-                                              self.master.port])
-                except Exception as err:  # pylint: disable=W0703
-                    self._report("# Post fail script failed! {0}"
-                                 "".format(err), level=logging.ERROR)
+                self.topology.run_script(post_fail, False,
+                                         [old_host, old_port,
+                                          self.master.host, self.master.port])
 
                 # Unregister existing instances from slaves
                 self._report("Unregistering existing instances from slaves.",
@@ -1028,8 +1002,8 @@ class RplCommands(object):
                 failover_mode = console.register_instance()
 
             # discover slaves if option was specified at startup
-            elif (self.options.get("discover", None) is not None and
-                  not first_pass):
+            elif (self.options.get("discover", None) is not None
+                  and not first_pass):
                 # Force refresh of health list if new slaves found
                 if self.topology.discover_slaves():
                     console.list_data = None

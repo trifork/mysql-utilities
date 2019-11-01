@@ -20,6 +20,8 @@ This file contains the diff commands for finding the difference among
 the definitions of two databases.
 """
 
+import re
+
 from mysql.utilities.exception import UtilDBError
 from mysql.utilities.common.pattern_matching import parse_object_name
 from mysql.utilities.common.database import Database
@@ -53,7 +55,6 @@ def object_diff(server1_val, server2_val, object1, object2, options,
     server1, server2 = server_connect(server1_val, server2_val,
                                       object1, object2, options)
 
-    force = options.get("force", None)
     # Get the object type if unknown considering that objects of different
     # types can be found with the same name.
     if not object_type:
@@ -63,11 +64,7 @@ def object_diff(server1_val, server2_val, object1, object2, options,
         db = Database(server1, db_name, options)
         obj1_types = db.get_object_type(obj_name)
         if not obj1_types:
-            msg = "The object {0} does not exist.".format(object1)
-            if not force:
-                raise UtilDBError(msg)
-            print("ERROR: {0}".format(msg))
-            return []
+            raise UtilDBError("The object {0} does not exist.".format(object1))
 
         # Get object types of object2
         sql_mode = server2.select_variable("SQL_MODE")
@@ -75,11 +72,7 @@ def object_diff(server1_val, server2_val, object1, object2, options,
         db = Database(server2, db_name, options)
         obj2_types = db.get_object_type(obj_name)
         if not obj2_types:
-            msg = "The object {0} does not exist.".format(object2)
-            if not force:
-                raise UtilDBError(msg)
-            print("ERROR: {0}".format(msg))
-            return []
+            raise UtilDBError("The object {0} does not exist.".format(object2))
 
         # Merge types found for both objects
         obj_types = set(obj1_types + obj2_types)

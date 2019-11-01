@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2010, 2016, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2010, 2015, Oracle and/or its affiliates. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -42,10 +42,6 @@ _BAD_CONN_FORMAT = (u"Connection '{0}' cannot be parsed. Please review the "
                     u"<login-path>[:<port>][:<socket>])")
 
 _BAD_QUOTED_HOST = u"Connection '{0}' has a malformed quoted host"
-
-_MULTIPLE_CONNECTIONS = (u"It appears you are attempting to specify multiple "
-                         u"connections. This option does not permit multiple "
-                         u"connections")
 
 _UNPARSED_CONN_FORMAT = ("Connection '{0}' not parsed completely. Parsed "
                          "elements '{1}', unparsed elements '{2}'")
@@ -116,7 +112,7 @@ _CONN_HOST_NAME = re.compile(
 _CONN_IPv4_NUM_ONLY = re.compile(
     r"""(
           (?:         # start of the IPv4 1st group
-             25[0-5]  # this match numbers 250 to 255
+             25[0-4]  # this match numbers 250 to 254
                     | # or
              2[0-4]\d # this match numbers from 200 to 249
                     | # or
@@ -127,7 +123,7 @@ _CONN_IPv4_NUM_ONLY = re.compile(
           (?:         # start of the 3 next groups
              \.       # the prefix '.' like in '.255'
              (?:
-                25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d
+                25[0-4]|2[0-4]\d|1\d\d|[1-9]?\d
                       # same group as before
               )
            )
@@ -504,12 +500,6 @@ def parse_connection(connection_values, my_defaults_reader=None, options=None):
 
     elif len(conn_format) == 2:
 
-        # Check to see if the user attempted to pass a list of connections.
-        # This is true if there is at least one comma and multiple @ symbols.
-        if ((connection_values.find(',') > 0) and
-                (connection_values.find('@') > 1)):
-            raise FormatError(_MULTIPLE_CONNECTIONS.format(connection_values))
-
         # Handle as in the format: user[:password]@host[:port][:socket]
         userpass, hostportsock = conn_format
 
@@ -617,7 +607,6 @@ def parse_server_address(connection_str):
     address_type = None
     unparsed = None
     # From the matchers look the one that match a host.
-    # pylint: disable=R0101
     for IP_matcher in IP_matchers_list:
         try:
             group = _match(IP_matchers[IP_matcher], connection_str)
@@ -690,8 +679,8 @@ def _verify_parsing(connection_str, host, port, socket, address_type,
             diff = diff.replace(socket, "")
         log.debug("diff {0}".format(diff))
     log.debug("unparsed {0}".format(unparsed))
-    if unparsed or (exp_connection_str != parsed_connection and
-                    (diff and diff != ":")):
+    if unparsed or (exp_connection_str != parsed_connection
+                    and (diff and diff != ":")):
         log.debug("raising exception")
         parsed_args = "host:%s, port:%s, socket:%s" % (host, port, socket)
         log.debug(_UNPARSED_CONN_FORMAT.format(connection_str,
@@ -761,7 +750,7 @@ def find_password(value):
 
     value[in]           String to search for password
     """
-    if not isinstance(value, str):
+    if not type(value) == str:
         return False
     # has to have an @ sign
     if '@' not in value:

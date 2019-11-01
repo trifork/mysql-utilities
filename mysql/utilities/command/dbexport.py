@@ -59,15 +59,6 @@ _FKEYS = ("SELECT DISTINCT constraint_schema "
           "FROM INFORMATION_SCHEMA.referential_constraints "
           "WHERE constraint_schema in ({0})")
 _FKEYS_SWITCH = "SET FOREIGN_KEY_CHECKS={0};"
-_AUTO_INC_WARNING = ("#\n# WARNING: One or more tables were detected with a "
-                     "value of 0 in an auto_increment column. If you want "
-                     "to import the data, you must enable the SQL_MODE '"
-                     "NO_AUTO_VALUE_ON_ZERO' during the import. Failure to "
-                     "do so may result in the wrong value used for the "
-                     "rows with 0 as the auto_increment value. The following "
-                     "statement is an example taken from the source server. "
-                     "Uncomment and adjust this statement as needed for the "
-                     "destination server.")
 
 
 def check_read_permissions(server, db_list, options):
@@ -186,7 +177,7 @@ def _export_metadata(source, db_list, output_file, options):
         # Export database metadata
         if not quiet:
             output_file.write(
-                "# Exporting metadata from {0}\n".format(db.q_db_name)
+                "# Exporting metadata from {0}\n".format(db.db_name)
             )
 
         # Perform the extraction
@@ -218,10 +209,8 @@ def _export_metadata(source, db_list, output_file, options):
                 else:
                     if not quiet:
                         output_file.write(
-                            "# {0}: {1}.{2}\n".format(
-                                dbobj[0], db.q_db_name,
-                                quote_with_backticks(dbobj[1][0], sql_mode)
-                            )
+                            "# {0}: {1}.{2}\n".format(dbobj[0], db.db_name,
+                                                      dbobj[1][0])
                         )
                     if (dbobj[0] == "PROCEDURE" and not skip_procs) or \
                        (dbobj[0] == "FUNCTION" and not skip_funcs) or \
@@ -256,7 +245,7 @@ def _export_metadata(source, db_list, output_file, options):
                 objects.append("GRANT")
             for obj_type in objects:
                 output_file.write(
-                    "# {0}S in {1}:".format(obj_type, db.q_db_name)
+                    "# {0}S in {1}:".format(obj_type, db.db_name)
                 )
                 if frmt in ('grid', 'vertical'):
                     rows = db.get_db_objects(obj_type, column_type, True)
@@ -340,16 +329,15 @@ def _export_row(data_rows, cur_table, out_format, single, skip_blobs,
                 for row in rows:
                     outfile.write("{0};\n".format(row))
             else:
-                outfile.write("# Table {0} has no data.\n"
-                              "".format(cur_table.q_tbl_name))
+                outfile.write("# Table {0} has no data.\n".format(tbl_name))
+
         if len(blob_rows) > 0:
             if skip_blobs:
                 outfile.write("# WARNING : Table {0} has blob data that "
                               "has been excluded by --skip-blobs."
-                              "\n".format(cur_table.q_tbl_name))
+                              "\n".format(tbl_name))
             else:
-                outfile.write("# Blob data for table "
-                              "{0}:\n".format(cur_table.q_tbl_name))
+                outfile.write("# Blob data for table {0}:\n".format(tbl_name))
                 for blob_row in blob_rows:
                     outfile.write("{0}\n".format(blob_row))
 
@@ -452,11 +440,11 @@ def _export_data(source, server_values, db_list, output_file, options):
         if previous_db != db_name:
             previous_db = db_name
             if not quiet:
-                q_db_name = quote_with_backticks(db_name, sql_mode)
                 if frmt == "sql":
+                    q_db_name = quote_with_backticks(db_name, sql_mode)
                     output_file.write("USE {0};\n".format(q_db_name))
                 output_file.write(
-                    "# Exporting data from {0}\n".format(q_db_name)
+                    "# Exporting data from {0}\n".format(db_name)
                 )
                 if file_per_table:
                     output_file.write("# Writing table data to files.\n")
@@ -607,11 +595,11 @@ def _export_table_data(source_srv, table, output_file, options):
     # then rows won't be correctly copied using the update statement,
     # so we must warn the user.
     if (not skip_blobs and frmt == "sql" and
-            (cur_table.blob_columns == len(cur_table.column_names) or
-             (not unique_indexes and cur_table.blob_columns))):
+            (cur_table.blob_columns == len(cur_table.column_names)
+             or (not unique_indexes and cur_table.blob_columns))):
         print("# WARNING: Table {0}.{1} contains only BLOB and TEXT "
               "fields. Rows will be generated with separate INSERT "
-              "statements.".format(cur_table.q_db_name, cur_table.q_tbl_name))
+              "statements.".format(cur_table.db_name, cur_table.tbl_name))
 
     for data_rows in cur_table.retrieve_rows(retrieval_mode):
         _export_row(data_rows, cur_table, frmt, single,
@@ -675,13 +663,12 @@ def get_copy_lock(server, db_list, options, include_mysql=False,
 
     # if this is a lock-all type and not replication operation,
     # find all tables and lock them
-    # pylint: disable=R0101
     elif locking == 'lock-all':
         table_lock_list = []
 
         # Build table lock list
         for db_name in db_list:
-            db = db_name[0] if isinstance(db_name, tuple) else db_name
+            db = db_name[0] if type(db_name) == tuple else db_name
             source_db = Database(server, db)
             tables = source_db.get_db_objects("TABLE")
             for table in tables:
@@ -835,7 +822,7 @@ def get_gtid_commands(master):
     Returns tuple - ([],"") = list of commands for start, command for end or
                               None if GTIDs are not enabled.
     """
-    if master.supports_gtid() != "ON":
+    if not master.supports_gtid() == "ON":
         return None
     rows = master.exec_query(_GET_GTID_EXECUTED)
     master_gtids_list = ["%s" % row[0] for row in rows]
@@ -912,7 +899,7 @@ def multiprocess_db_export_task(export_db_task):
     except UtilError:
         _, err, _ = sys.exc_info()
         print("ERROR: {0}".format(err.errmsg))
-    except:
+    except Exception:
         _, err, _ = sys.exc_info()
         print("UNEXPECTED ERROR: {0}".format(err.errmsg))
 
@@ -943,33 +930,6 @@ def multiprocess_tbl_export_task(export_tbl_task):
         _, err, _ = sys.exc_info()
         print("ERROR exporting data for table '{0}': {1}".format(table,
                                                                  err.errmsg))
-
-
-def _check_auto_increment(source, db_list, options):
-    """Check auto increment values for 0
-
-    If any tables are found to have 0 in the list of databases,
-    the code prints a warning along with a sample statement
-    that can be used should the user decide she needs it when
-    she does the import.
-
-    source[in]      Source connection
-    db_list[in]     List of databases to export
-    options[in[     Global option list
-    """
-    for db in db_list:
-        db_obj = Database(source, db, options)
-        # print warning if any tables have 0 as auto_increment value
-        if db_obj.check_auto_increment():
-            sql_mode = source.show_server_variable("sql_mode")
-            sql_mode_str = "NO_AUTO_VALUE_ON_ZERO"
-            if sql_mode[0]:
-                sql_mode_str = sql_mode[0][1]
-                if 'NO_AUTO_VALUE_ON_ZERO' not in sql_mode[0][1]:
-                    sql_mode_str = ("'{0}',NO_AUTO_VALUE_ON_ZERO"
-                                    "".format(sql_mode_str))
-            print(_AUTO_INC_WARNING)
-            print("# SET SQL_MODE = '{0}'\n#".format(sql_mode_str))
 
 
 def export_databases(server_values, db_list, output_file, options):
@@ -1012,7 +972,7 @@ def export_databases(server_values, db_list, output_file, options):
 
     # Check for GTID support
     supports_gtid = servers[0].supports_gtid()
-    if not skip_gtids and supports_gtid != 'ON':
+    if not skip_gtids and not supports_gtid == 'ON':
         skip_gtids = True
     elif skip_gtids and supports_gtid == 'ON':
         output_file.write(_GTID_WARNING)
@@ -1030,7 +990,7 @@ def export_databases(server_values, db_list, output_file, options):
             if db[0].upper() in ["MYSQL", "INFORMATION_SCHEMA",
                                  "PERFORMANCE_SCHEMA", "SYS"]:
                 continue
-            if db[0] not in db_list:
+            if not db[0] in db_list:
                 output_file.write(_GTID_BACKUP_WARNING)
                 warning_printed = True
 
@@ -1082,10 +1042,6 @@ def export_databases(server_values, db_list, output_file, options):
     if gtid_info:
         write_commands(output_file, gtid_info[0], options, True, rpl_cmt,
                        rpl_cmt_prefix)
-
-    # Checking auto increment. See if any tables have 0 in their auto
-    # increment column.
-    _check_auto_increment(source, db_list, options)
 
     # dump metadata
     if export in ("definitions", "both"):

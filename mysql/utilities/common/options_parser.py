@@ -29,7 +29,6 @@ import io
 import os
 import re
 from ConfigParser import SafeConfigParser, MissingSectionHeaderError
-from mysql.utilities.common.tools import check_python_version
 
 DEFAULT_OPTION_FILES = {
     'nt': 'C:\\my.ini',
@@ -152,10 +151,6 @@ class MySQLOptionsParser(SafeConfigParser):
 
         Return list of successfully read files.
         """
-        # Get python version since we must use str() to read strings from
-        # the file for older, 2.6 versions of Python
-        py26 = check_python_version((2, 6, 0), (2, 6, 99), False,
-                                    None, False, False, False)
         if isinstance(filenames, str):
             filenames = [filenames]
         read_ok = []
@@ -187,12 +182,7 @@ class MySQLOptionsParser(SafeConfigParser):
                     except KeyError:
                         self._options_dict[group] = {}
                     for option, value in self._sections[group].items():
-                        if py26:
-                            self._options_dict[group][option] = (str(value),
-                                                                 priority)
-                        else:
-                            self._options_dict[group][option] = (value,
-                                                                 priority)
+                        self._options_dict[group][option] = (value, priority)
 
                 self._sections = self._dict()
 

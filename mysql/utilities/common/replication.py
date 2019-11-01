@@ -146,7 +146,6 @@ def negotiate_rpl_connection(server, is_master=True, strict=True,
     change_master = []
 
     # If server is a master, perform error checking
-    # pylint: disable=R0101
     if is_master:
         master = Master(new_opts)
         master.connect()
@@ -163,7 +162,7 @@ def negotiate_rpl_connection(server, is_master=True, strict=True,
                     uname = ""
                     passwd = ""
                     # Throw error if strict but not for rpl_mode = both
-                    if strict and rpl_mode != 'both':
+                    if strict and not rpl_mode == 'both':
                         raise UtilRplError(_NO_RPL_USER)
                     else:
                         change_master.append(_WARNING % _NO_RPL_USER)
@@ -171,7 +170,7 @@ def negotiate_rpl_connection(server, is_master=True, strict=True,
                     uname = res[0][0]
                     if res[0][2]:
                         # Throw error if strict but not for rpl_mode = both
-                        if strict and rpl_mode != 'both':
+                        if strict and not rpl_mode == 'both':
                             raise UtilRplError(_RPL_USER_PASS)
                         else:
                             change_master.append(_WARNING % _RPL_USER_PASS)
@@ -179,10 +178,9 @@ def negotiate_rpl_connection(server, is_master=True, strict=True,
             else:
                 # Parse username and password (supports login-paths)
                 try:
-                    uname, passwd = parse_user_password(rpl_user,
-                                                        options=options)
-                except FormatError:
-                    raise UtilError(USER_PASSWORD_FORMAT.format("--rpl-user"))
+                    uname, passwd = parse_user_password(rpl_user, options=options)
+                except FormatError as fmt_err:
+                    raise UtilError (USER_PASSWORD_FORMAT.format("--rpl-user"))
                 if not passwd:
                     passwd = ''
 
@@ -575,8 +573,8 @@ class Replication(object):
         # Parse user and password (support login-paths)
         try:
             r_user, r_pass = parse_user_password(rpl_user)
-        except FormatError:
-            raise UtilError(USER_PASSWORD_FORMAT.format("--rpl-user"))
+        except FormatError as fmt_err:
+            raise UtilError (USER_PASSWORD_FORMAT.format("--rpl-user"))
 
         # Check to see if rpl_user is present, else create her
         if not self.create_rpl_user(r_user, r_pass)[0]:
@@ -788,7 +786,7 @@ class Master(Server):
         if options is None:
             options = {}
 
-        assert options.get("conn_info") is not None
+        assert not options.get("conn_info") is None
 
         self.options = options
         Server.__init__(self, options)
@@ -876,21 +874,17 @@ class Master(Server):
             host = clean_IPv6(host)
 
         # Create user class instance
-        user = User(self, "{0}:{1}@{2}:{3}".format(r_user, r_pass, host, port))
+        user = User(self, "%s:%s@%s:%s" % (r_user, r_pass, host, port))
         if not user.exists():
             user.create()
-            # Save current user for privilege checking
-            user.current_user = "'{0}'@'{1}'".format(r_user, host)
 
-        # Check privileges, but do not user the anonymous host
-        if not user.has_privilege("*", "*", "REPLICATION SLAVE",
-                                  globals_privs=False):
+        if not user.has_privilege("*", "*", "REPLICATION SLAVE"):
             if verbosity > 0:
                 print "# Granting replication access to replication user..."
-            query_str = ("GRANT REPLICATION SLAVE ON *.* TO "
-                         "'{0}'@'{1}' ".format(r_user, host))
+            query_str = "GRANT REPLICATION SLAVE ON *.* TO '%s'@'%s' " % \
+                        (r_user, host)
             if r_pass:
-                query_str += "IDENTIFIED BY '{0}'".format(r_pass)
+                query_str += "IDENTIFIED BY '%s'" % r_pass
 
             if ssl:
                 query_str = "{0} {1}".format(query_str, " REQUIRE SSL")
@@ -993,7 +987,7 @@ class Master(Server):
         connect_error_slaves = []
         res = self.exec_query("SHOW SLAVE HOSTS")
         verbose = self.options.get("verbose", False)
-        if res != []:
+        if not res == []:
             # Sort for conformity
             res.sort()  # pylint: disable=E1103
 
@@ -1321,7 +1315,7 @@ class Slave(Server):
         if options is None:
             options = {}
 
-        assert options.get("conn_info") is not None
+        assert not options.get("conn_info") is None
 
         self.options = options
         Server.__init__(self, options)
@@ -1586,8 +1580,8 @@ class Slave(Server):
         rpl_wild_do_table = res[0][_SLAVE_WILD_DO_TABLE]
         rpl_wild_ignore_table = res[0][_SLAVE_WILD_IGNORE_TABLE]
 
-        if (rpl_do_db or rpl_ignore_db or rpl_do_table or rpl_ignore_table or
-                rpl_wild_do_table or rpl_wild_ignore_table):
+        if (rpl_do_db or rpl_ignore_db or rpl_do_table or rpl_ignore_table
+                or rpl_wild_do_table or rpl_wild_ignore_table):
             return (rpl_do_db, rpl_ignore_db, rpl_do_table, rpl_ignore_table,
                     rpl_wild_do_table, rpl_wild_ignore_table)
         else:
@@ -1955,17 +1949,14 @@ class Slave(Server):
         if master_ssl and master_ssl not in ('0', 'OFF'):
             change_master = "{0}, MASTER_SSL = {1}".format(change_master, 1)
         if master_ssl_ca is not None:
-            change_master = (
-                "{0}, MASTER_SSL_CA = '{1}'"
-            ).format(change_master, master_ssl_ca)
+            change_master = ("{0}, MASTER_SSL_CA = '{1}'"
+                             ).format(change_master, master_ssl_ca)
         if master_ssl_cert:
-            change_master = (
-                "{0}, MASTER_SSL_CERT = '{1}'"
-            ).format(change_master, master_ssl_cert)
+            change_master = ("{0}, MASTER_SSL_CERT = '{1}'"
+                             ).format(change_master, master_ssl_cert)
         if master_ssl_key:
-            change_master = (
-                "{0}, MASTER_SSL_KEY = '{1}'"
-            ).format(change_master, master_ssl_key)
+            change_master = ("{0}, MASTER_SSL_KEY = '{1}'"
+                             ).format(change_master, master_ssl_key)
         if self.supports_gtid() == "ON":
             change_master += ", MASTER_AUTO_POSITION=1"
         elif not from_beginning:

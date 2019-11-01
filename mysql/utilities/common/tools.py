@@ -209,12 +209,12 @@ def execute_script(run_cmd, filename=None, options=None, verbosity=False):
         command.extend([str(opt) for opt in options])
 
     if verbosity:
-        print("# SCRIPT EXECUTED: {0}".format(" ".join(command)))
+        print("# SCRIPT EXECUTED: {0}".format(command))
 
     try:
         proc = subprocess.Popen(command, shell=False,
                                 stdout=f_out, stderr=f_out)
-    except:
+    except OSError:
         _, err, _ = sys.exc_info()
         raise UtilError(str(err))
 
@@ -245,21 +245,18 @@ def ping_host(host, timeout):
 
 
 def parse_mysqld_version(vers_str):
-    """ Parse the MySQL version string.
-
-    vers_str[in]     MySQL Version from client
-
-    Returns string = version string
-    """
     pattern = r"mysqld(?:\.exe)?\s+Ver\s+(\d+\.\d+\.\S+)\s"
     match = re.search(pattern, vers_str)
     if not match:
         return None
     version = match.group(1)
+    num_dots = vers_str.count('.')
     try:
         # get the version digits. If more than 2, we get first 3 parts
-        # pylint: disable=W0612
-        maj_ver, min_ver, dev = version.split(".", 2)
+        if num_dots == 2:
+            maj_ver, min_ver, dev = version.split(".", 2)
+        else:
+            maj_ver, min_ver, dev, __ = version.split(".", 3)
         rel = dev.split("-", 1)
         return (maj_ver, min_ver, rel[0])
     except:
@@ -292,9 +289,7 @@ def get_mysqld_version(mysqld_path):
 
     if line is None:
         return None
-    # strip path for long, unusual paths that contain version number
-    fixed_str = "{0} {1}".format("mysqld", line.strip(mysqld_path))
-    return parse_mysqld_version(fixed_str)
+    return parse_mysqld_version(line)
 
 
 def show_file_statistics(file_name, wild=False, out_format="GRID"):

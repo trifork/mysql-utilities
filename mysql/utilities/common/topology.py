@@ -23,7 +23,6 @@ import sys
 import logging
 import time
 import operator
-import os
 
 from multiprocessing.pool import ThreadPool
 
@@ -38,7 +37,7 @@ from mysql.utilities.common.format import print_list
 from mysql.utilities.common.user import User
 from mysql.utilities.common.server import (get_server_state, get_server,
                                            get_connection_dictionary,
-                                           log_server_version, Server)
+                                           log_server_version)
 from mysql.utilities.common.messages import USER_PASSWORD_FORMAT
 
 
@@ -53,12 +52,14 @@ _GTID_WAIT = "SELECT WAIT_UNTIL_SQL_THREAD_AFTER_GTIDS('%s', %s)"
 _GTID_SUBTRACT_TO_EXECUTED = ("SELECT GTID_SUBTRACT('{0}', "
                               "@@GLOBAL.GTID_EXECUTED)")
 
+# TODO: Remove the use of PASSWORD(), depercated from 5.7.6.
 _UPDATE_RPL_USER_QUERY = ("UPDATE mysql.user "
                           "SET password = PASSWORD('{passwd}')"
                           "where user ='{user}'")
 # Query for server versions >= 5.7.6.
 _UPDATE_RPL_USER_QUERY_5_7_6 = (
-    "ALTER USER IF EXISTS '{user}'@'{host}' IDENTIFIED BY '{passwd}'")
+    "UPDATE mysql.user SET authentication_string = PASSWORD('{passwd}') "
+    "WHERE user = '{user}'")
 
 _SELECT_RPL_USER_PASS_QUERY = ("SELECT user, host, grant_priv, password, "
                                "Repl_slave_priv FROM mysql.user "
@@ -387,17 +388,15 @@ class Topology(Replication):
 
         # Get user and password (support login-path)
         try:
-            user, password = parse_user_password(discover,
-                                                 options=self.options)
+            user, password = parse_user_password(discover, options=self.options)
         except FormatError:
-            raise UtilError(USER_PASSWORD_FORMAT.format("--discover-slaves"))
+            raise UtilError (USER_PASSWORD_FORMAT.format("--discover-slaves"))
 
         # Find discovered slaves
         new_slaves_found = False
         self._report("# Discovering slaves for master at "
                      "{0}:{1}".format(self.master.host, self.master.port))
         discovered_slaves = self.master.get_slaves(user, password)
-        # pylint: disable=R0101
         for slave in discovered_slaves:
             if "]" in slave:
                 host, port = slave.split("]:")
@@ -526,7 +525,7 @@ class Topology(Replication):
             candidate = self.options.get("candidate", None)
 
         assert (candidate is not None), "A candidate server is required."
-        assert (isinstance(candidate, Master)), \
+        assert (type(candidate) == Master), \
             "A candidate server must be a Master class instance."
 
         # If master has GTID=ON, ensure all servers have GTID=ON
@@ -587,10 +586,9 @@ class Topology(Replication):
 
         # Get user and password (support login-path)
         try:
-            user, passwd = parse_user_password(self.rpl_user,
-                                               options=self.options)
+            user, passwd = parse_user_password(self.rpl_user, options=self.options)
         except FormatError:
-            raise UtilError(USER_PASSWORD_FORMAT.format("--rpl-user"))
+            raise UtilError (USER_PASSWORD_FORMAT.format("--rpl-user"))
         return (user, passwd)
 
     def run_script(self, script, quiet, options=None):
@@ -775,7 +773,7 @@ class Topology(Replication):
             try:
                 user, _ = parse_user_password(self.rpl_user)
             except FormatError:
-                raise UtilError(USER_PASSWORD_FORMAT.format("--rpl-user"))
+                raise UtilError (USER_PASSWORD_FORMAT.format("--rpl-user"))
 
             # Make new master forget was a slave using slave methods
             s_candidate = self._change_role(slave, slave=False)
@@ -934,11 +932,6 @@ class Topology(Replication):
             # Block writes to slave (temp_master)
             lock_ftwrl = Lock(temp_master, [], lock_options)
             temp_master.set_read_only(True)
-            if self.verbose and not self.quiet:
-                read_only = temp_master.show_server_variable("READ_ONLY")
-                self._report("# Read only is {0} for {1}:{2}."
-                             "".format(read_only[0][1], temp_master.host,
-                                       temp_master.port))
 
             # Connect candidate to slave as its temp_master
             if self.verbose and not self.quiet:
@@ -956,11 +949,6 @@ class Topology(Replication):
 
             # Unblock writes to slave (temp_master).
             temp_master.set_read_only(False)
-            if self.verbose and not self.quiet:
-                read_only = temp_master.show_server_variable("READ_ONLY")
-                self._report("# Read only is {0} for {1}:{2}."
-                             "".format(read_only[0][1], temp_master.host,
-                                       temp_master.port))
             lock_ftwrl.unlock()
 
             try:
@@ -1006,8 +994,8 @@ class Topology(Replication):
                                                                    port=s_port)
                 # Print warning or raise an error according to the default
                 # failover behavior and defined options.
-                if ((stop_on_error and not self.force) or
-                        (not stop_on_error and self.pedantic)):
+                if ((stop_on_error and not self.force)
+                   or (not stop_on_error and self.pedantic)):
                     print("# ERROR: {0}".format(msg))
                     self._report(msg, logging.CRITICAL, False)
                     if stop_on_error and not self.force:
@@ -1033,8 +1021,8 @@ class Topology(Replication):
                        "slave.").format(host=s_host, port=s_port)
                 # Print warning or raise an error according to the default
                 # failover behavior and defined options.
-                if ((stop_on_error and not self.force) or
-                        (not stop_on_error and self.pedantic)):
+                if ((stop_on_error and not self.force)
+                   or (not stop_on_error and self.pedantic)):
                     print("# ERROR: {0}".format(msg))
                     self._report(msg, logging.CRITICAL, False)
                     if stop_on_error and not self.force:
@@ -1056,7 +1044,7 @@ class Topology(Replication):
             sql_error = res[2]
             if sql_running == "No" or sql_errorno or sql_error:
                 msg = ("Problem detected with SQL thread for slave "
-                       "'{host}'@'{port}' that can result in an unstable "
+                       "'{host}'@'{port}' that can result on a unstable "
                        "topology.").format(host=s_host, port=s_port)
                 msg_thread = " - SQL thread running: {0}".format(sql_running)
                 if not sql_errorno and not sql_error:
@@ -1071,8 +1059,8 @@ class Topology(Replication):
                            "replication-problems.html")
                 # Print warning or raise an error according to the default
                 # failover behavior and defined options.
-                if ((stop_on_error and not self.force) or
-                        (not stop_on_error and self.pedantic)):
+                if ((stop_on_error and not self.force)
+                   or (not stop_on_error and self.pedantic)):
                     print("# ERROR: {0}".format(msg))
                     self._report(msg, logging.CRITICAL, False)
                     print("# {0}".format(msg_thread))
@@ -1132,7 +1120,7 @@ class Topology(Replication):
             slave_set = set()
             for others_slave_dic in self.slaves:
                 if (slave_dict['host'] != others_slave_dic['host'] or
-                        slave_dict['port'] != others_slave_dic['port']):
+                   slave_dict['port'] != others_slave_dic['port']):
                     other_slave = others_slave_dic['instance']
                     # Skip not defined or dead slaves
                     if not other_slave or not other_slave.is_alive():
@@ -1204,7 +1192,7 @@ class Topology(Replication):
                     iteration += 1
             if slave_ok and self.verbose and not self.quiet:
                 self._report("# %s:%s status: Ok " % (slave_dict['host'],
-                                                      slave_dict['port']))
+                             slave_dict['port']))
 
         if len(slave_errors) > 0:
             self._report("WARNING - The following slaves failed to connect to "
@@ -1361,7 +1349,7 @@ class Topology(Replication):
             # No master makes these impossible to determine.
             have_gtid = "OFF"
             master_log = ""
-            master_log_pos = ""  # pylint: disable=R0204
+            master_log_pos = ""
 
         # Get the health of the slaves
         slave_rows = []
@@ -1369,9 +1357,6 @@ class Topology(Replication):
             host = slave_dict['host']
             port = slave_dict['port']
             slave = slave_dict['instance']
-            # Get correct port from slave
-            if slave and port != slave.port:
-                port = slave.port
             if slave is None:
                 rpl_health = (False, ["Cannot connect to slave."])
             elif not slave.is_alive():
@@ -1617,15 +1602,14 @@ class Topology(Replication):
                                    'SUPER'))
             else:
                 if (not user_inst.has_privilege("*", "*", "SUPER") or
-                        not user_inst.has_privilege("*", "*",
-                                                    "GRANT OPTION") or
-                        not user_inst.has_privilege("*", "*", "SELECT") or
-                        not user_inst.has_privilege("*", "*", "RELOAD") or
-                        not user_inst.has_privilege("*", "*", "DROP") or
-                        not user_inst.has_privilege("*", "*", "CREATE") or
-                        not user_inst.has_privilege("*", "*", "INSERT") or
-                        not user_inst.has_privilege("*", "*",
-                                                    "REPLICATION SLAVE")):
+                    not user_inst.has_privilege("*", "*", "GRANT OPTION") or
+                    not user_inst.has_privilege("*", "*", "SELECT") or
+                    not user_inst.has_privilege("*", "*", "RELOAD") or
+                    not user_inst.has_privilege("*", "*", "DROP") or
+                    not user_inst.has_privilege("*", "*", "CREATE") or
+                    not user_inst.has_privilege("*", "*", "INSERT") or
+                    not user_inst.has_privilege("*", "*",
+                                                "REPLICATION SLAVE")):
                     errors.append((server.user, server.host, server.port,
                                    'SUPER, GRANT OPTION, REPLICATION SLAVE, '
                                    'SELECT, RELOAD, DROP, CREATE, INSERT'))
@@ -1843,73 +1827,47 @@ class Topology(Replication):
                     passwd_hash = passwd_hash[0][3]
                 else:
                     passwd_hash = ""
-                if passwd == '':
-                    msg = ("The specified replication user is using a "
-                           "password (but none was specified).\n"
-                           "Use the --force option to force the use of "
-                           "the user specified with  --rpl-user and no "
-                           "password.")
-                else:
-                    msg = ("The specified replication user is using a "
-                           "different password that the one specified.\n"
-                           "Use the --force option to force the use of "
-                           "the user specified with  --rpl-user and new "
-                           "password.")
-                # If 5.7.6+, check by trying to connect
-                if self.master.check_version_compat(5, 7, 6):
-                    config = {
-                        'user': user,
-                        'passwd': passwd,
-                        'host': m_candidate.host,
-                        'port': m_candidate.port,
-                    }
-                    s_conn = Server({'conn_info': config})
-                    try:
-                        s_conn.connect()
-                    except:
-                        self._report("ERROR: %s" % msg, logging.ERROR)
-                        return
+                # now hash the given rpl password from --rpl-user.
+                # TODO: Remove the use of PASSWORD(), depercated from 5.7.6.
+                rpl_master_pass = slave_qry("SELECT PASSWORD('%s');" %
+                                            passwd)
+                rpl_master_pass = rpl_master_pass[0][0]
+
+                if (rpl_master_pass != passwd_hash):
+                    if passwd == '':
+                        msg = ("The specified replication user is using a "
+                               "password (but none was specified).\n"
+                               "Use the --force option to force the use of "
+                               "the user specified with  --rpl-user and no "
+                               "password.")
                     else:
-                        s_conn.disconnect()
-                # else compare the hash fom --rpl-user.
-                else:
-                    rpl_master_pass = slave_qry("SELECT PASSWORD('%s');" %
-                                                passwd)
-                    rpl_master_pass = rpl_master_pass[0][0]
-                    if rpl_master_pass != passwd_hash:
-                        self._report("ERROR: %s" % msg, logging.ERROR)
-                        return
+                        msg = ("The specified replication user is using a "
+                               "different password that the one specified.\n"
+                               "Use the --force option to force the use of "
+                               "the user specified with  --rpl-user and new "
+                               "password.")
+                    self._report("ERROR: %s" % msg, logging.ERROR)
+                    return
             # Use the correct query for server (changed for 5.7.6).
-            self.master.toggle_binlog("DISABLE")
             if self.master.check_version_compat(5, 7, 6):
                 query = _UPDATE_RPL_USER_QUERY_5_7_6
-                self.master.exec_query(query.format(user=user,
-                                                    host=m_candidate.host,
-                                                    passwd=passwd))
             else:
                 query = _UPDATE_RPL_USER_QUERY
-                self.master.exec_query(query.format(user=user, passwd=passwd))
-            self.master.toggle_binlog("ENABLE")
+            self.master.exec_query(query.format(user=user, passwd=passwd))
 
         if self.verbose:
             self._report("# Creating replication user if it does not exist.")
-        self.master.toggle_binlog("DISABLE")
         res = m_candidate.create_rpl_user(m_candidate.host,
                                           m_candidate.port,
                                           user, passwd, ssl=self.ssl)
-        self.master.toggle_binlog("ENABLE")
         if not res[0]:
             print("# ERROR: {0}".format(res[1]))
             self._report(res[1], logging.CRITICAL, False)
 
         # Call exec_before script - display output if verbose on
-        try:
-            self.run_script(self.before_script, False,
-                            [self.master.host, self.master.port,
-                             m_candidate.host, m_candidate.port])
-        except Exception as err:  # pylint: disable=W0703
-            self._report("# Before script failed! {0}".format(err),
-                         level=logging.ERROR)
+        self.run_script(self.before_script, False,
+                        [self.master.host, self.master.port,
+                         m_candidate.host, m_candidate.port])
 
         if self.verbose:
             self._report("# Blocking writes on master.")
@@ -1921,11 +1879,6 @@ class Topology(Replication):
         }
         lock_ftwrl = Lock(self.master, [], lock_options)
         self.master.set_read_only(True)
-        if self.verbose and not self.quiet:
-            read_only = self.master.show_server_variable("READ_ONLY")
-            self._report("# Read only is {0} for {1}:{2}."
-                         "".format(read_only[0][1], self.master.host,
-                                   self.master.port))
 
         # Wait for all slaves to catch up.
         gtid_enabled = self.master.supports_gtid() == "ON"
@@ -1966,11 +1919,6 @@ class Topology(Replication):
 
         # Unblock master
         self.master.set_read_only(False)
-        if self.verbose and not self.quiet:
-            read_only = self.master.show_server_variable("READ_ONLY")
-            self._report("# Read only is {0} for {1}:{2}."
-                         "".format(read_only[0][1], self.master.host,
-                                   self.master.port))
         lock_ftwrl.unlock()
 
         # Make master a slave (if specified)
@@ -2053,12 +2001,8 @@ class Topology(Replication):
         self.run_cmd_on_slaves("start", not self.verbose)
 
         # Call exec_after script - display output if verbose on
-        try:
-            self.run_script(self.after_script, False,
-                            [self.master.host, self.master.port])
-        except Exception as err:  # pylint: disable=W0703
-            self._report("# After script failed! {0}".format(err),
-                         level=logging.ERROR)
+        self.run_script(self.after_script, False,
+                        [self.master.host, self.master.port])
 
         # Check all slaves for status, errors
         self._report("# Checking slaves for errors.")
@@ -2085,11 +2029,11 @@ class Topology(Replication):
             'conn_info': get_connection_dictionary(server),
             'verbose': self.verbose,
         }
-        if slave and not isinstance(server, Slave):
+        if slave and type(server) != Slave:
             slave_conn = Slave(conn_dict)
             slave_conn.connect()
             return slave_conn
-        if not slave and not isinstance(server, Master):
+        if not slave and type(server) != Master:
             master_conn = Master(conn_dict)
             master_conn.connect()
             return master_conn
@@ -2147,10 +2091,6 @@ class Topology(Replication):
             s_host = slave_dict['host']
             s_port = slave_dict['port']
             slave = slave_dict['instance']
-            # Fix port
-            if slave:
-                if os.name == "posix" and slave.socket:
-                    slave_dict['port'] = slave.port
             # skip dead or zombie slaves
             if slave is None or not slave.is_alive():
                 continue
@@ -2256,7 +2196,7 @@ class Topology(Replication):
 
         user, passwd = self._get_rpl_user(self._change_role(new_master))
 
-        # Check slaves for errors that might result in an unstable topology
+        # Check slaves for errors that might result on an unstable topology
         self._report("# Checking slaves status (before failover).")
         self._check_slaves_status(stop_on_error)
 
@@ -2276,12 +2216,8 @@ class Topology(Replication):
             self._report(res[1], logging.CRITICAL, False)
 
         # Call exec_before script - display output if verbose on
-        try:
-            self.run_script(self.before_script, False,
-                            [old_host, old_port, host, port])
-        except Exception as err:  # pylint: disable=W0703
-            self._report("# Before script failed! {0}".format(err),
-                         level=logging.ERROR)
+        self.run_script(self.before_script, False,
+                        [old_host, old_port, host, port])
 
         # Stop all slaves
         self._report("# Stopping slaves.")
@@ -2315,12 +2251,8 @@ class Topology(Replication):
         self.run_cmd_on_slaves("start", not self.verbose)
 
         # Call exec_after script - display output if verbose on
-        try:
-            self.run_script(self.after_script, False,
-                            [old_host, old_port, host, port])
-        except Exception as err:  # pylint: disable=W0703
-            self._report("# After script failed! {0}".format(err),
-                         level=logging.ERROR)
+        self.run_script(self.after_script, False,
+                        [old_host, old_port, host, port])
 
         # Check slaves for errors
         self._report("# Checking slaves for errors.")

@@ -67,7 +67,7 @@ class UnicodeWriter(object):
         self.writer.writerow([val.encode("utf-8") if isinstance(val, unicode)
                               else val for val in row])
         data = self.queue.getvalue()
-        data = data.decode("utf-8")  # pylint: disable=R0204
+        data = data.decode("utf-8")
         data = self.encoder.encode(data)
         self.stream.write(data)
         self.queue.truncate(0)
@@ -126,39 +126,6 @@ def _format_row_separator(f_out, columns, col_widths, row, quiet=False):
     f_out.write("\n")
 
 
-def get_col_widths(columns, rows):
-    """
-    This function gets the maximum column width for a list of rows
-
-    Returns: list - max column widths
-    """
-    # Calculate column width for each column
-    col_widths = []
-    for col in columns:
-        size = len(col.decode("utf-8") if isinstance(col, str) else col)
-        col_widths.append(size + 1)
-
-    stop = len(columns)
-    for row in rows:
-        row = [val.encode("utf-8") if isinstance(val, unicode)
-               else val for val in row]
-        # if there is one column, just use row.
-        if stop == 1:
-            col_size = len(row[0].decode("utf-8")
-                           if isinstance(row[0], str) else str(row[0]))
-            col_size += 1
-            if col_size > col_widths[0]:
-                col_widths[0] = col_size
-        else:
-            for i in range(0, stop):
-                col_size = len(row[i].decode("utf-8")
-                               if isinstance(row[i], str) else str(row[i]))
-                col_size += 1
-                if col_size > col_widths[i]:
-                    col_widths[i] = col_size
-    return col_widths
-
-
 def format_tabular_list(f_out, columns, rows, options=None):
     """Format a list in a pretty grid format.
 
@@ -208,9 +175,29 @@ def format_tabular_list(f_out, columns, rows, options=None):
             csv_writer.writerow(row)
     else:
         # Calculate column width for each column
-        col_widths = options.get('col_widths', None)
-        if not col_widths:
-            col_widths = get_col_widths(columns, rows)
+        col_widths = []
+        for col in columns:
+            size = len(col.decode("utf-8") if isinstance(col, str) else col)
+            col_widths.append(size + 1)
+
+        stop = len(columns)
+        for row in rows:
+            row = [val.encode("utf-8") if isinstance(val, unicode)
+                   else val for val in row]
+            # if there is one column, just use row.
+            if stop == 1:
+                col_size = len(row[0].decode("utf-8")
+                               if isinstance(row[0], str) else str(row[0]))
+                col_size += 1
+                if col_size > col_widths[0]:
+                    col_widths[0] = col_size
+            else:
+                for i in range(0, stop):
+                    col_size = len(row[i].decode("utf-8")
+                                   if isinstance(row[i], str) else str(row[i]))
+                    col_size += 1
+                    if col_size > col_widths[i]:
+                        col_widths[i] = col_size
 
         # print header
         if print_header:
@@ -282,7 +269,7 @@ def format_vertical_list(f_out, columns, rows, options=None):
 
 
 def print_list(f_out, fmt, columns, rows, no_headers=False, sort=False,
-               to_sql=False, col_widths=None):
+               to_sql=False):
     """Print a list< based on format.
 
     Prints a list of rows in the format chosen. Default is GRID.
@@ -295,17 +282,13 @@ def print_list(f_out, fmt, columns, rows, no_headers=False, sort=False,
     sort[in]          If True, sort list before printing
     to_sql[out]       If True, converts columns to SQL format before
                       printing them to the output.
-    col_widths[in]    col widths to use instead of actual col
     """
 
-    if not col_widths:
-        col_widths = []
     if sort:
         rows.sort()
     list_options = {
         'print_header': not no_headers,
-        'to_sql': to_sql,
-        'col_widths': col_widths,
+        'to_sql': to_sql
     }
     if fmt == "vertical":
         format_vertical_list(f_out, columns, rows)
@@ -328,9 +311,7 @@ def _get_max_key_dict_list(dictionary_list, key, alias_key=None):
 
     Returns int - max width of key
     """
-    def lcal(x):
-        """ calculate string length """
-        return len(str(x or ''))
+    lcal = lambda x: len(str(x or ''))
     dl = dictionary_list
     tmp = [(lcal(item[key]), lcal(item.get(alias_key, 0))) for item in dl]
     return max([(x[0] + x[1] + 3) if x[1] else x[0] for x in tmp])

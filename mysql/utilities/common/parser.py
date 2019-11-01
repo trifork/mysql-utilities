@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011, 2016, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2015, Oracle and/or its affiliates. All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -662,9 +662,8 @@ class SlowQueryLog(LogParserBase):
             elif line.startswith('SET timestamp='):
                 entry['datetime'] = datetime.datetime.fromtimestamp(
                     int(line[14:].strip(';')))
-            elif (line.startswith('# Time:') or
-                  line.startswith("# User@Host") or
-                  line.endswith('started with:')):
+            elif (line.startswith('# Time:') or line.startswith("# User@Host")
+                  or line.endswith('started with:')):
                 break
             query.append(line)
             line = self._get_next_line()
@@ -674,8 +673,8 @@ class SlowQueryLog(LogParserBase):
             # will get the database name of the previous query. However, it's
             # more likely current database is set. Fix would be that the server
             # includes a USE-statement for every entry.
-            if (entry['database'] is None and
-                    self._current_database is not None):
+            if (entry['database'] is None
+               and self._current_database is not None):
                 entry['database'] = self._current_database
         entry['query'] = '\n'.join(query)
         self._cached_line = line
@@ -814,7 +813,6 @@ class SlowQueryLogEntry(LogEntryBase):
             param['datetime'] = param['datetime'].strftime("%Y-%m-%d %H:%M:%S")
         except AttributeError:
             param['datetime'] = ''
-        return (
-            "<%(clsname)s %(datetime)s [%(user)s@%(host)s] "
-            "%(query_time)s/%(lock_time)s/%(rows_examined)s/%(rows_sent)s>"
-        ) % param
+        return ("<%(clsname)s %(datetime)s [%(user)s@%(host)s] "
+                "%(query_time)s/%(lock_time)s/%(rows_examined)s/%(rows_sent)s>"
+                ) % param
