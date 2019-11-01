@@ -225,8 +225,8 @@ class test(copy_db_rpl.test):
         # Here we check the result from execution of each test case.
         for i in range(0, len(_TEST_CASE_RESULTS)):
             if self.debug:
-                print "  Actual results:", self.results[i][1:]
-                print "Expected results:", _TEST_CASE_RESULTS[i]
+                print("  Actual results:", self.results[i][1:])
+                print("Expected results:", _TEST_CASE_RESULTS[i])
             if self.results[i][1:] != _TEST_CASE_RESULTS[i]:
                 msg = ("\n{0}\n  Actual result = {1}\nExpected result = "
                        "{2}\n".format(self.results[i][0], self.results[i][1:],

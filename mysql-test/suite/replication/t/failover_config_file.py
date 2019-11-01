@@ -73,7 +73,7 @@ class test(failover.test):
         test_num = 0
         comment = "Test case {0} - test config file".format(test_num)
         if self.debug:
-            print comment
+            print(comment)
 
         failover_cmd = ("python ../scripts/mysqlfailover.py --interval=10 "
                         " --slaves=./tmp.cnf[slave1],./tmp.cnf[slave2],"
@@ -81,14 +81,14 @@ class test(failover.test):
                         " --log={0}".format(FAILOVER_LOG.format('1')))
 
         if self.debug:
-            print failover_cmd
+            print(failover_cmd)
 
         # Launch the console in stealth mode
         proc, f_out = self.start_process(failover_cmd)
 
         # Wait for console to load
         if self.debug:
-            print "# Waiting for console to start."
+            print("# Waiting for console to start.")
         i = 1
         time.sleep(1)
         while proc.poll() is not None:
@@ -96,7 +96,7 @@ class test(failover.test):
             i += 1
             if i > _TIMEOUT:
                 if self.debug:
-                    print "# Timeout console to start."
+                    print("# Timeout console to start.")
                 raise MUTLibError("{0}: failed - timeout waiting for "
                                   "console to start.".format(comment))
 
@@ -104,14 +104,14 @@ class test(failover.test):
         self.stop_process(proc, f_out, True)
         # Wait for console to end
         if self.debug:
-            print "# Waiting for console to end."
+            print("# Waiting for console to end.")
         i = 0
         while proc.poll() is None:
             time.sleep(1)
             i += 1
             if i > _TIMEOUT:
                 if self.debug:
-                    print "# Timeout console to end."
+                    print("# Timeout console to end.")
                 raise MUTLibError("{0}: failed - timeout waiting for "
                                   "console to end.".format(comment))
 

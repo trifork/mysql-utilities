@@ -377,7 +377,7 @@ def check_python_version(min_version=PYTHON_MIN_VERSION,
     name[in]                      String for a custom name, if not provided
                                   will get the module name from where this
                                   function was called.
-    print_on_fail[in]             If True, print error else do not print
+    print_on_fail[in]             If True, print(error) else do not print
                                   error on failure.
     exit_on_fail[in]              If True, issue exit() else do not exit()
                                   on failure.
@@ -566,7 +566,7 @@ def check_connector_python(print_error=True,
     C/Python version required. It's possible to override this by passing  a new
     value to ``min_version`` parameter.
 
-    print_error[in]               If True, print error else do not print
+    print_error[in]               If True, print(error) else do not print
                                   error on failure.
     min_version[in]               Tuple with the minimum C/Python version
                                   required (inclusive).

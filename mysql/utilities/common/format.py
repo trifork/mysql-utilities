@@ -29,10 +29,7 @@ import csv
 import os
 import textwrap
 
-try:
-    import cStringIO as StringIO
-except ImportError:
-    import StringIO
+from io import StringIO
 
 from mysql.utilities.common.sql_transform import to_sql
 
@@ -212,7 +209,7 @@ def format_tabular_list(f_out, columns, rows, options=None):
         if not col_widths:
             col_widths = get_col_widths(columns, rows)
 
-        # print header
+        # print(header)
         if print_header:
             _format_col_separator(f_out, columns, col_widths, quiet)
             _format_row_separator(f_out, columns, col_widths, columns, quiet)

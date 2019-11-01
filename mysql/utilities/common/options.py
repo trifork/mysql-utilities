@@ -30,7 +30,7 @@ import os.path
 import re
 
 from datetime import datetime
-from ip_parser import find_password, parse_login_values_config_path
+from mysql.utilities.common.ip_parser import find_password, parse_login_values_config_path
 from mysql.utilities import LICENSE_FRM, VERSION_FRM
 from mysql.utilities.exception import UtilError, FormatError
 from mysql.connector.conversion import MySQLConverter
@@ -61,7 +61,7 @@ class UtilitiesParser(optparse.OptionParser):
     def print_help(self, output=None):
         """Show version information before help
         """
-        print self.version
+        print(self.version)
         optparse.OptionParser.print_help(self, output)
 
     def format_epilog(self, formatter):
@@ -390,7 +390,7 @@ def add_verbosity(parser, quiet=True):
                       (default is True)
 
     """
-    parser.add_option("-v", "--verbose", action="count", dest="verbosity",
+    parser.add_option("-v", "--verbose", action="count", default=0, dest="verbosity",
                       help="control how much information is displayed. "
                       "e.g., -v = verbose, -vv = more verbose, -vvv = debug")
     if quiet:
@@ -405,8 +405,8 @@ def check_verbosity(options):
     # Warn if quiet and verbosity are both specified
     if options.quiet is not None and options.quiet and \
        options.verbosity is not None and options.verbosity > 0:
-        print "WARNING: --verbosity is ignored when --quiet is specified."
-        options.verbosity = None
+        print("WARNING: --verbosity is ignored when --quiet is specified.")
+        options.verbosity = 0
 
 
 def add_changes_for(parser, default="server1"):
@@ -489,7 +489,7 @@ def check_engine_options(server, new_engine, def_engine,
     server[in]         server instance to be checked
     new_engine[in]     new storage engine
     def_engine[in]     default storage engine
-    fail[in]           If True, issue exception on failure else print warning
+    fail[in]           If True, issue exception on failure else print(warning)
                        default = False
     quiet[in]          If True, suppress warning messages (not exceptions)
                        default = False
@@ -502,7 +502,7 @@ def check_engine_options(server, new_engine, def_engine,
             if not found and fail:
                 raise UtilError(message)
             elif not found and not quiet:
-                print message
+                print(message)
 
     server.get_storage_engines()
     message = "WARNING: %s storage engine %s is not supported on the server."
@@ -590,10 +590,10 @@ def check_exclude_pattern(exclude_list, use_regexp):
         test = row.replace('_', '').replace('%', '').replace('`', '')
         test = test.replace("'", "").replace('.', '').replace('"', '')
         if len(test) > 0 and not test.isalnum() and not use_regexp:
-            print "# WARNING: One or more of your --exclude patterns " \
+            print("# WARNING: One or more of your --exclude patterns " \
                   "contains symbols that could be regexp patterns. You may " \
                   "need to include --regexp to ensure your exclude pattern " \
-                  "is evaluated as REGEXP and not a SQL LIKE expression."
+                  "is evaluated as REGEXP and not a SQL LIKE expression.")
             return False
     return True
 

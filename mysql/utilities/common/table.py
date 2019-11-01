@@ -21,11 +21,11 @@ This module contains abstractions of a MySQL table and an index.
 
 import multiprocessing
 import sys
-from itertools import izip
 
 from mysql.utilities.exception import UtilError, UtilDBError
 from mysql.connector.conversion import MySQLConverter
 from mysql.utilities.common.format import print_list
+from mysql.utilities.common.database import Database
 from mysql.utilities.common.lock import Lock
 from mysql.utilities.common.pattern_matching import parse_object_name
 from mysql.utilities.common.server import Server
@@ -41,8 +41,23 @@ _MAXTHREADS_INSERT = 6
 _MAXROWS_PER_THREAD = 100000
 _MAXAVERAGE_CALC = 100
 
+#_FOREIGN_KEY_QUERY = """
+#  SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_SCHEMA,
+#         REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
+#  FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+#  WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' AND
+#        REFERENCED_TABLE_SCHEMA IS NOT NULL
+#"""
+
+_GET_INDEX_QUERY = """
+  SELECT table_name AS `Table`, NON_UNIQUE, index_name AS `Key_name`, SEQ_IN_INDEX,  column_name, Collation, sub_part,packed,nullable as `null`,index_type,comment,index_comment 
+  FROM information_schema.statistics 
+  WHERE table_schema = '%s' and table_name = '%s'
+"""
+
+
 _FOREIGN_KEY_QUERY = """
-  SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_SCHEMA,
+  SELECT CONSTRAINT_NAME, COLUMN_NAME,
          REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
   FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
   WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' AND
@@ -84,10 +99,9 @@ class Index(object):
         col = (index_tuple[4], index_tuple[7])
         self.columns.append(col)
         self.accept_nulls = True if index_tuple[9] else False
-        self.type = index_tuple[10]
+        self.type = index_tuple[9]
         self.compared = False                    # mark as compared for speed
         self.duplicate_of = None                 # saves duplicate index
-        # pylint: disable=R0102
         if index_tuple[7] > 0:
             self.column_subparts = True          # check subparts e.g. a(20)
         else:
@@ -110,7 +124,10 @@ class Index(object):
         if col_a[0] == col_b[0]:
             # if they both have sub_parts, compare them
             if sz_this and sz_that:
-                return (sz_this <= sz_that)
+                if sz_this <= sz_that:
+                    return True
+                else:
+                    return False
             # if this index has a sub_part and the other does
             # not, it is potentially redundant
             elif sz_this and sz_that is None:
@@ -133,7 +150,7 @@ class Index(object):
         num_cols_that = len(index.columns)
         same_size = num_cols_this == num_cols_that
         if self.type == "BTREE":
-            indexes = izip(self.columns, index.columns)
+            indexes = zip(self.columns, index.columns)
             for idx_pair in indexes:
                 if not self.__cmp_columns(*idx_pair):
                     return False
@@ -144,10 +161,10 @@ class Index(object):
             if self.type != "FULLTEXT":
                 # For RTREE or HASH type indexes, an index is redundant if
                 # it has the exact same columns on the exact same order.
-                indexes = izip(self.columns, index.columns)
+                indexes = zip(self.columns, index.columns)
                 return (same_size and
                         all((self.__cmp_columns(*idx_pair)
-                             for idx_pair in indexes)))
+                            for idx_pair in indexes)))
             else:  # FULLTEXT index
                 # A FULLTEXT index A is redundant of FULLTEXT index B if
                 # the columns of A are a subset of B's columns, the order
@@ -343,8 +360,7 @@ class Table(object):
             self.table = ".".join([self.db_name, self.tbl_name])
         else:
             self.table = name
-            self.db_name, self.tbl_name = parse_object_name(name,
-                                                            self.sql_mode)
+            self.db_name, self.tbl_name = parse_object_name(name, self.sql_mode)
             self.q_db_name = quote_with_backticks(self.db_name, self.sql_mode)
             self.q_tbl_name = quote_with_backticks(self.tbl_name,
                                                    self.sql_mode)
@@ -379,8 +395,8 @@ class Table(object):
         else:
             self.max_packet_size = _MAXPACKET_SIZE
         # Watch for invalid values
-        if self.max_packet_size > _MAXPACKET_SIZE:
-            self.max_packet_size = _MAXPACKET_SIZE
+        if int(self.max_packet_size) > int(_MAXPACKET_SIZE):
+            self.max_packet_size = int(_MAXPACKET_SIZE)
 
         self._insert = "INSERT INTO %s.%s VALUES "
         self.query_options = {  # Used for skipping fetch of rows
@@ -442,8 +458,8 @@ class Table(object):
                     self.q_column_names.append(
                         quote_with_backticks(columns[col][0], self.sql_mode))
                 col_type = columns[col][1].lower()
-                if ('char' in col_type or 'enum' in col_type or
-                        'set' in col_type or 'binary' in col_type):
+                if ('char' in col_type or 'enum' in col_type
+                        or 'set' in col_type or 'binary' in col_type):
                     self.text_columns.append(col)
                     col_format_values[col] = "'%s'"
                 elif 'blob' in col_type or 'text'in col_type:
@@ -511,7 +527,7 @@ class Table(object):
         false.
         """
         if [idx_q_name for idx_q_name in self.indexes_q_names
-                if idx_q_name == index_q_name]:
+           if idx_q_name == index_q_name]:
             return True
         return False
 
@@ -547,8 +563,8 @@ class Table(object):
                  idx.unique]
             )
             no_null_idxes.extend(
-                [idx for idx in self.fulltext_indexes
-                 if not idx.accept_nulls and idx.unique]
+                [idx for idx in self.fulltext_indexes if not idx.accept_nulls
+                 and idx.unique]
             )
             self.unique_not_null_indexes = no_null_idxes
 
@@ -610,7 +626,6 @@ class Table(object):
         row_vals = []
         # Deal with blob, special characters and NULL values.
         for index, column in enumerate(row):
-            # pylint: disable=W0212
             if index in self.blob_columns:
                 row_vals.append(converter.quote(
                     convert_special_characters(column)))
@@ -661,9 +676,8 @@ class Table(object):
         # If all columns are blobs or there aren't any UNIQUE NOT NULL indexes
         # then rows won't be correctly copied using the update statement,
         # so we must use insert statements instead.
-        if not skip_blobs and \
-                (len(self.blob_columns) == len(self.column_names) or
-                 self.blob_columns and not unique_indexes):
+        if not skip_blobs and (len(self.blob_columns) == len(self.column_names)
+                               or self.blob_columns and not unique_indexes):
             blob_inserts.append(self._build_insert_blob(row, new_db,
                                                         self.q_tbl_name))
             is_blob_insert = True
@@ -692,7 +706,6 @@ class Table(object):
             for col in self.bit_columns:
                 if values[col] is not None:
                     # Convert BIT to INTEGER for dump.
-                    # pylint: disable=W0212
                     values[col] = MySQLConverter()._BIT_to_python(values[col])
 
             # Build string (add quotes to "string" like types)
@@ -827,8 +840,8 @@ class Table(object):
         if max_threads == 0:
             max_threads = 1
         if max_threads > 1 and self.verbose:
-            print "# Using multi-threaded insert option. Number of " \
-                  "threads = %d." % max_threads
+            print("# Using multi-threaded insert option. Number of " \
+                  "threads = %d." % max_threads)
         return (num_rows / max_threads) + max_threads
 
     def _bulk_insert(self, rows, new_db, destination=None):
@@ -879,7 +892,7 @@ class Table(object):
         for data_insert in insert_data:
             try:
                 dest.exec_query(data_insert, self.query_options)
-            except UtilError, e:
+            except UtilError as e:
                 raise UtilError("Problem inserting data. "
                                 "Error = %s" % e.errmsg)
 
@@ -887,7 +900,7 @@ class Table(object):
         for blob_insert in blob_data:
             try:
                 dest.exec_query(blob_insert, self.query_options)
-            except UtilError, e:
+            except UtilError as e:
                 raise UtilError("Problem updating blob field. "
                                 "Error = %s" % e.errmsg)
 
@@ -943,7 +956,7 @@ class Table(object):
         query_str = "INSERT INTO %s.%s SELECT * FROM %s.%s" % \
                     (new_db, self.q_tbl_name, self.q_db_name, self.q_tbl_name)
         if self.verbose and not self.quiet:
-            print query_str
+            print(query_str)
 
         # Disable foreign key checks to allow data to be copied without running
         # into foreign key referential integrity issues
@@ -1111,21 +1124,8 @@ class Table(object):
 
         Returns result set
         """
-        res = self.server.exec_query("SHOW INDEXES FROM %s" % self.q_table)
-        # Clear the cardinality column
-        if res:
-            new_res = []
-            for row in res:
-                new_row = []
-                i = 0
-                for item in row:
-                    if not i == 6:
-                        new_row.append(item)
-                    else:
-                        new_row.append("0")
-                    i = i + 1
-                new_res.append(tuple(new_row))
-            res = new_res
+        #res = self.server.exec_query("SHOW INDEXES FROM %s" % self.q_table)
+        res = self.server.exec_query(_GET_INDEX_QUERY % (self.db_name, self.tbl_name))
         return res
 
     def get_tbl_foreign_keys(self):
@@ -1285,7 +1285,7 @@ class Table(object):
         self.indexes_q_names = []
 
         if self.verbose:
-            print "# Getting indexes for %s" % (self.table)
+            print("# Getting indexes for %s" % (self.table))
         rows = self._get_index_list()
 
         # Return False if no indexes found.
@@ -1319,7 +1319,7 @@ class Table(object):
         Note: You must call get_indexes() prior to calling this method. If
         get_indexes() is not called, no duplicates will be found.
         """
-
+        
         dupes = []
         res = self.__check_index_list(self.btree_indexes)
         # if there are duplicates, add them to the dupes list
@@ -1500,7 +1500,7 @@ class Table(object):
         fmt[in]         format out output = sql, table, tab, csv
         """
 
-        print "# Showing indexes from %s:\n#" % (self.table)
+        print("# Showing indexes from %s:\n#" % (self.table))
         if fmt == "sql":
             self.__print_index_list(self.btree_indexes, fmt,
                                     verbosity=verbosity)
@@ -1518,7 +1518,7 @@ class Table(object):
             master_indexes.extend(self.fulltext_indexes)
             self.__print_index_list(master_indexes, fmt,
                                     verbosity=verbosity)
-        print "#"
+        print("#")
 
     def has_primary_key(self):
         """Check to see if there is a primary key.

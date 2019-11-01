@@ -57,11 +57,11 @@ class test(failover.test):
         mysqld[in]    MySQL server options.
         """
         if self.debug:
-            print "# Spawning {0}".format(role)
+            print("# Spawning {0}".format(role))
         index = self.servers.find_server_by_name(role)
         if index >= 0:
             if self.debug:
-                print "# Found it in the servers list."
+                print("# Found it in the servers list.")
             server = self.servers.get_server(index)
             try:
                 server.show_server_variable("server_id")
@@ -70,7 +70,7 @@ class test(failover.test):
                                   "server_id: {0}".format(err.errmsg))
         else:
             if self.debug:
-                print "# Cloning server0."
+                print("# Cloning server0.")
             serverid = self.servers.get_next_id()
             port = int(self.servers.get_next_port())
             if mysqld is None:
@@ -96,7 +96,7 @@ class test(failover.test):
         msg = "Timeout waiting for console {0} to {1}.".format(
             name, "start." if start else "end.")
         if self.debug:
-            print '#', msg
+            print('#', msg)
         elapsed = 0
         delay = 1
         done = False
@@ -109,7 +109,7 @@ class test(failover.test):
             elapsed += delay
             if elapsed >= _TIMEOUT:
                 if self.debug:
-                    print "#", msg
+                    print("#", msg)
                 raise MUTLibError(comment + ":" + msg)
 
     def setup(self):

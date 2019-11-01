@@ -243,7 +243,7 @@ class test(mutlib.System_test):
 
                 else:
                     if self.debug:
-                        print "\n{0}".format(comment)
+                        print("\n{0}".format(comment))
 
                     if _TEST_CASES[i]['run_on'] == 'server1':
                         conn_val = self.get_connection_values(self.server1)
@@ -275,10 +275,10 @@ class test(mutlib.System_test):
                         # Display results of command in _TRANSFORM_FILE
                         # Note: flush not to mix output with utility
                         sys.stdout.flush()
-                        print "\nContents of output file:"
+                        print("\nContents of output file:")
                         t_file = open(_TRANSFORM_FILE, 'r+')
                         for line in t_file.readlines():
-                            print line,
+                            print(line)
                         t_file.close()
                         sys.stdout.flush()
 

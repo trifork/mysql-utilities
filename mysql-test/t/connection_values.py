@@ -102,7 +102,7 @@ class test(mutlib.System_test):
     def run(self):
         for i in range(0, len(_TEST_CASES)):
             if self.debug:
-                print "\nTest case {0} - {1}".format(i + 1, _TEST_CASES[i][0])
+                print("\nTest case {0} - {1}".format(i + 1, _TEST_CASES[i][0]))
             try:
                 src_val = get_connection_dictionary(_TEST_CASES[i][1])
                 server_options = {'quiet': True, 'version': None,
@@ -117,13 +117,13 @@ class test(mutlib.System_test):
             else:
                 self.results.append((False, ''))
             if self.debug:
-                print "Test results:", self.results[i][0], self.results[i][1]
+                print("Test results:", self.results[i][0], self.results[i][1])
 
         test_num = len(_TEST_CASES) + 1
         comment = "Compare dictionaries with socket only"
 
         if self.debug:
-            print "\nTest case {0} - {1}".format(test_num, comment)
+            print("\nTest case {0} - {1}".format(test_num, comment))
         server1_vals = get_connection_dictionary("test_server1")
         server1_vals['port'] = None
         server2_vals = get_connection_dictionary("test_server2")
@@ -134,7 +134,7 @@ class test(mutlib.System_test):
         self.results.append((res, ''))
 
         if self.debug:
-            print "Test results:", res, False
+            print("Test results:", res, False)
 
         self.remove_login_path_data('test_server1')
         self.remove_login_path_data('test_server2')

@@ -57,7 +57,13 @@ def tostr(value):
 
     Returns value as str instance or None.
     """
-    return None if value is None else str(value)
+    if value is None:
+        return None
+    if isinstance(value, bytearray):
+        return value.decode('utf-8')
+    if isinstance(value, byte):
+        return value.decode('utf-8')
+    return str(value)
 
 
 class MySQLUtilsCursorRaw(mysql.connector.cursor.MySQLCursorRaw):
@@ -206,7 +212,7 @@ def _print_connection(prefix, conn_info):
     conn_info[in]          Connection information
     """
     conn_val = get_connection_dictionary(conn_info)
-    print "# %s on %s: ..." % (prefix, conn_val["host"]),
+    print("# %s on %s: ..." % (prefix, conn_val["host"]),)
 
 
 def get_local_servers(all_proc=False, start=3306, end=3333,
@@ -377,17 +383,17 @@ def get_server_state(server, host, pingtime=3, verbose=False):
     Returns string - state
     """
     if verbose:
-        print "# Attempting to contact %s ..." % host,
+        print("# Attempting to contact %s ..." % host,)
     if server is not None and server.is_alive():
         if verbose:
-            print "Success"
+            print("Success")
         return "UP"
     elif ping_host(host, pingtime):
         if verbose:
-            print "Server is reachable"
+            print("Server is reachable")
         return "WARN"
     if verbose:
-        print "FAIL"
+        print("FAIL")
     return "DOWN"
 
 
@@ -488,7 +494,7 @@ def connect_servers(src_val, dest_val, options=None):
     else:
         source = get_server(src_name, src_dict, quiet, verbose=verbose)
         if not quiet:
-            print "connected."
+            print("connected.")
     if not _require_version(source, version):
         raise UtilError("The %s version is incompatible. Utility "
                         "requires version %s or higher." %
@@ -502,7 +508,7 @@ def connect_servers(src_val, dest_val, options=None):
             destination = get_server(dest_name, dest_dict, quiet,
                                      verbose=verbose)
             if not quiet:
-                print "connected."
+                print("connected.")
         if not _require_version(destination, version):
             raise UtilError("The %s version is incompatible. Utility "
                             "requires version %s or higher." %
@@ -511,7 +517,7 @@ def connect_servers(src_val, dest_val, options=None):
             not isinstance(dest_val, Server):
         try:
             _print_connection(dest_name, src_dict)
-            print "connected."
+            print("connected.")
         except:
             print("")
             raise
@@ -1102,8 +1108,8 @@ class Server(object):
             # server variable.
             if not self.charset:
                 res = self.show_server_variable('character_set_client')
-                self.db_conn.set_charset_collation(charset=res[0][1])
                 self.charset = res[0][1]
+                self.db_conn.set_charset_collation(charset=self.charset)
             if self.ssl:
                 res = self.exec_query("SHOW STATUS LIKE 'Ssl_cipher'")
                 if res[0][1] == '':
@@ -1239,6 +1245,8 @@ class Server(object):
                 return False
         return True
 
+
+
     def exec_query(self, query_str, options=None, exec_timeout=0):
         """Execute a query and return result set
 
@@ -1246,7 +1254,7 @@ class Server(object):
         method used as it contains critical error code to catch the issue
         with mysql.connector throwing an error on an empty result set.
 
-        Note: will handle exception and print error if query fails
+        Note: will handle exception and print(error) if query fails
 
         Note: if fetchall is False, the method returns the cursor instance
 
@@ -1882,9 +1890,9 @@ class Server(object):
                                    "ENGINE=%s" % def_engine)
             if not quiet:
                 if len(exist_engine) > 0:
-                    print replace_msg % (exist_engine, def_engine, tbl_name)
+                    print(replace_msg % (exist_engine, def_engine, tbl_name))
                 else:
-                    print add_msg % (def_engine, tbl_name)
+                    print(add_msg % (def_engine, tbl_name))
             exist_engine = def_engine
 
         # Use new engine
@@ -1908,9 +1916,9 @@ class Server(object):
                 res = [create_str]
             if not quiet:
                 if len(exist_engine) > 0:
-                    print replace_msg % (exist_engine, new_engine, tbl_name)
+                    print(replace_msg % (exist_engine, new_engine, tbl_name))
                 else:
-                    print add_msg % (new_engine, tbl_name)
+                    print(add_msg % (new_engine, tbl_name))
         return res
 
     def get_innodb_stats(self):
@@ -1992,7 +2000,7 @@ class Server(object):
             if len(cmd) > 1:
                 if cmd[0] != '#':
                     if verbose:
-                        print cmd
+                        print(cmd)
                     query_options = {
                         'fetch': False
                     }

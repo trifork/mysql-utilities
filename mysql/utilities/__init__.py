@@ -38,8 +38,8 @@ VERSION_FRM = ("MySQL Utilities {program} version %s \n"
                "License type: %s" % (VERSION_STRING, LICENSE))
 
 LICENSE_FRM = (VERSION_FRM + "\n" + COPYRIGHT_FULL)
-PYTHON_MIN_VERSION = (2, 6, 0)
-PYTHON_MAX_VERSION = (3, 0, 0)
+PYTHON_MIN_VERSION = (3, 0, 0)
+PYTHON_MAX_VERSION = (4, 0, 0)
 CONNECTOR_MIN_VERSION = (1, 2, 1)
 
 # This dictionary has to be updated whenever a utility is added.

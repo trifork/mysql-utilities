@@ -461,7 +461,7 @@ if __name__ == "__main__":
 
     # Process the server connections
 
-    # Print preamble
+    # print(preamble)
     print("\nMySQL Utilities Testing - MUT\n")
     print("Parameters used: ")
     print("  Display Width       = {0}".format(opt.width))
@@ -635,7 +635,7 @@ if __name__ == "__main__":
 
     have_disabled = len(disable_list)
 
-    # Print header
+    # print(header)
     print("\n{0}".format("-" * opt.width))
     print("".join(["TEST NAME", ' ' * (opt.width - 22), "STATUS   TIME"]))
     print("=" * opt.width)
@@ -834,7 +834,7 @@ if __name__ == "__main__":
             if not run_ok and not opt.force:
                 break
 
-        # Print postamble
+        # print(postamble)
         print("-" * opt.width)
         print(datetime.datetime.now().strftime("Testing completed: "
                                                "%A %d %B %Y %H:%M:%S\n"))

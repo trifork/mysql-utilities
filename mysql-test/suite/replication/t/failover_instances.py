@@ -70,8 +70,8 @@ class test(failover.test):
         msg = "Timeout waiting for console {0} to ".format(name)
         msg += "start." if start else "end."
         if self.debug:
-            print "# Waiting for console {0} to".format(name),
-            print "start." if start else "end."
+            print("# Waiting for console {0} to".format(name))
+            print("start.") if start else print("end.")
         elapsed = 0
         delay = 1
         done = False
@@ -84,7 +84,7 @@ class test(failover.test):
             elapsed += delay
             if elapsed >= _TIMEOUT:
                 if self.debug:
-                    print "#", msg
+                    print("#", msg)
                 raise MUTLibError("{0}: {1}".format(comment, msg))
 
     def _check_result(self, prefix, target):
@@ -96,14 +96,14 @@ class test(failover.test):
         found_row = False
         log_file = open(prefix + _FAILOVER_LOG)
         if self.debug:
-            print "# Looking for mode change in log."
+            print("# Looking for mode change in log.")
         for row in log_file:
             if self.debug:
-                print row,
+                print(row)
             if target in row:
                 found_row = True
                 if self.debug:
-                    print "# Found in row = '{0}'.".format(row),
+                    print("# Found in row = '{0}'.".format(row))
                 break
         log_file.close()
         return found_row
@@ -140,15 +140,15 @@ class test(failover.test):
         comment = ("Test case {0} : test multiple instances of failover "
                    "console.".format(test_num))
         if self.debug:
-            print comment
-            print "# First instance:", failover_cmd1
-            print "# Second instance:", failover_cmd2
+            print(comment)
+            print("# First instance:", failover_cmd1)
+            print("# Second instance:", failover_cmd2)
         proc1, f_out1 = failover.test.start_process(self, failover_cmd1)
         self._poll_console(True, "first", proc1, comment)
 
         # Now wait for interval to occur.
         if self.debug:
-            print "# Waiting for interval to end."
+            print("# Waiting for interval to end.")
         time.sleep(interval)
 
         proc2, f_out2 = failover.test.start_process(self, failover_cmd2)
@@ -168,9 +168,9 @@ class test(failover.test):
         comment = "Test case {0} : test failed instance restart".format(
             test_num)
         if self.debug:
-            print comment
-            print "# Third instance:", failover_cmd3
-            print "# Fourth instance:", failover_cmd4
+            print(comment)
+            print("# Third instance:", failover_cmd3)
+            print("# Fourth instance:", failover_cmd4)
 
         # Launch the console in stealth mode
         proc3, f_out3 = failover.test.start_process(self, failover_cmd3)
@@ -181,7 +181,7 @@ class test(failover.test):
         pid_file = open(res[0][1])
         pid = int(pid_file.readline().strip('\n'))
         if self.debug:
-            print "# Terminating server", self.server1.port, "via pid =", pid
+            print("# Terminating server", self.server1.port, "via pid =", pid)
         pid_file.close()
 
         # Get server datadir to clean directory after kill.
@@ -197,7 +197,7 @@ class test(failover.test):
 
         # Now wait for interval to occur.
         if self.debug:
-            print "# Waiting for interval to end."
+            print("# Waiting for interval to end.")
         time.sleep(interval)
 
         failover.test.stop_process(self, proc3, f_out3, True)

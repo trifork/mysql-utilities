@@ -83,13 +83,23 @@ _PARTITION_QUERY = """
 
 _COLUMN_QUERY = """
   SELECT ORDINAL_POSITION, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE,
-         COLUMN_DEFAULT, EXTRA, COLUMN_COMMENT, COLUMN_KEY
+         COLUMN_DEFAULT, EXTRA, COLUMN_KEY
   FROM INFORMATION_SCHEMA.COLUMNS
   WHERE TABLE_SCHEMA = '%(db)s' AND TABLE_NAME = '%(name)s'
 """
 
+#_FK_CONSTRAINT_QUERY = """
+#SELECT TABLE_NAME, CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_SCHEMA,
+#REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME, UPDATE_RULE, DELETE_RULE
+#FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS
+#JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+#USING (CONSTRAINT_SCHEMA, CONSTRAINT_NAME, TABLE_NAME, REFERENCED_TABLE_NAME)
+#WHERE CONSTRAINT_SCHEMA = '{DATABASE!s}'
+#AND TABLE_NAME = '{TABLE!s}'
+#"""
+
 _FK_CONSTRAINT_QUERY = """
-SELECT TABLE_NAME, CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_SCHEMA,
+SELECT TABLE_NAME, CONSTRAINT_NAME, COLUMN_NAME,
 REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME, UPDATE_RULE, DELETE_RULE
 FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS
 JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE
@@ -361,7 +371,7 @@ class Database(object):
         if charset_name:
             specification = " DEFAULT CHARACTER SET {0}".format(charset_name)
         if collation_name:
-            specification = "{0} DEFAULT COLLATE {1}".format(specification,
+            specification = "{0} DEFAULT COLLATE {0}".format(specification,
                                                              collation_name)
         query_create_db = "CREATE DATABASE {0} {1}".format(db, specification)
         server.exec_query(query_create_db, self.query_options)
@@ -456,17 +466,7 @@ class Database(object):
             for v in v_name_dict:
                 # No looking for itself
                 if v != v_name:
-                    # split off the from clause
-                    # strip WHERE, ORDER BY, and GROUP BY
-                    try:
-                        from_clause = stmt.rsplit('from', 1)[1]
-                        from_clause = from_clause.split('WHERE', 1)[0]
-                    except:
-                        from_clause = None
-                    if from_clause:
-                        index = from_clause.find(v)
-                    else:
-                        index = stmt.find(v)
+                    index = stmt.find(v)
                     if index >= 0:
                         base_views.append(v_name_dict[v])
             return base_views
@@ -582,8 +582,8 @@ class Database(object):
         """
 
         if self.verbose:
-            print "# Dropping new object %s %s.%s" % \
-                  (obj_type, self.new_db, name)
+            print("# Dropping new object %s %s.%s" % \
+                  (obj_type, self.new_db, name))
         drop_str = "DROP %s %s.%s" % \
                    (obj_type, self.q_new_db, name)
         # Suppress the error on drop
@@ -619,7 +619,7 @@ class Database(object):
         def_engine[in]     If target storage engine doesn't exist, use
                            this engine.
 
-        Note: will handle exception and print error if query fails
+        Note: will handle exception and print(error) if query fails
         """
         # Use the sql_mode set on destination server
         dest_sql_mode = self.destination.select_variable("SQL_MODE")
@@ -627,9 +627,8 @@ class Database(object):
         q_db_name = quote_with_backticks(self.db_name, dest_sql_mode)
         if obj_type == _TABLE and self.cloning:
             obj_name = quote_with_backticks(obj[0], dest_sql_mode)
-            create_list = [
-                "CREATE TABLE {0!s}.{1!s} LIKE {2!s}.{1!s}"
-                "".format(q_new_db, obj_name, q_db_name)
+            create_list = ["CREATE TABLE {0!s}.{1!s} LIKE {2!s}.{1!s}".format(
+                q_new_db, obj_name, q_db_name)
             ]
         else:
             create_list = [self.__make_create_statement(obj_type, obj)]
@@ -666,10 +665,10 @@ class Database(object):
         if not quiet:
             if obj_type == _GRANT:
                 if show_grant_msg:
-                    print "%s GRANTS from %s" % (string, self.db_name)
+                    print("%s GRANTS from %s" % (string, self.db_name))
             else:
-                print "%s %s %s.%s" % \
-                      (string, obj_type, self.db_name, obj[0])
+                print("%s %s %s.%s" % \
+                      (string, obj_type, self.db_name, obj[0]))
             if self.verbose:
                 print("; ".join(create_list))
 
@@ -685,7 +684,7 @@ class Database(object):
                     if not user.exists():
                         user.create()
                 self.destination.exec_query(stm, self.query_options)
-            except UtilDBError as e:
+            except Exception as e:
                 raise UtilDBError("Cannot operate on {0} object."
                                   " Error: {1}".format(obj_type, e.errmsg),
                                   -1, self.db_name)
@@ -699,7 +698,7 @@ class Database(object):
             try:
                 query = _FK_CONSTRAINT_QUERY.format(**params)
                 fkey_constr = self.source.exec_query(query)
-            except UtilDBError as e:
+            except Exception as e:
                 raise UtilDBError("Unable to obtain Foreign Key constraint "
                                   "information for table {0}.{1}. "
                                   "Error: {2}".format(self.db_name, obj[0],
@@ -767,7 +766,8 @@ class Database(object):
                                   "{3}".format(params['DATABASE'],
                                                params['TABLE'],
                                                params['REFERENCED_DATABASE'],
-                                               params['REFERENCED_TABLE']))
+                                               params['REFERENCED_TABLE'])
+                                  )
                         query = _ALTER_TABLE_ADD_FK_CONSTRAINT.format(**params)
 
                         # Store constraint query for later execution
@@ -784,7 +784,8 @@ class Database(object):
                                   "{3}".format(params['DATABASE'],
                                                params['TABLE'],
                                                params['REFERENCED_DATABASE'],
-                                               params['REFERENCED_TABLE']))
+                                               params['REFERENCED_TABLE'])
+                                  )
             elif fkey_constr and may_skip_fk:
                 print("# WARNING: FOREIGN KEY constraints for table {0}.{1} "
                       "are missing because the new storage engine for "
@@ -811,7 +812,7 @@ class Database(object):
                 print(query)
             try:
                 self.destination.exec_query(query, query_opts)
-            except UtilDBError as err:
+            except Exception as err:
                 raise UtilDBError("Unable to execute constraint query "
                                   "{0}. Error: {1}".format(query, err.errmsg),
                                   -1, self.new_db)
@@ -905,44 +906,10 @@ class Database(object):
         dest_sql_mode = self.destination.select_variable("SQL_MODE")
 
         # Create the objects in the new database
-        # Save any views that fail due to dependencies
-        dependent_views = []
         for obj in self.objects:
             # Drop object if --drop-first specified and database not dropped
             # Grants do not need to be dropped for overwriting
             if options.get("do_drop", False) and obj[0] != _GRANT:
-                obj_name = quote_with_backticks(obj[1][0], dest_sql_mode)
-                self.__drop_object(obj[0], obj_name)
-
-            # Attempt to create the object.
-            try:
-                # Create the object
-                self.__create_object(obj[0], obj[1], not grant_msg_displayed,
-                                     options.get("quiet", False),
-                                     options.get("new_engine", None),
-                                     options.get("def_engine", None))
-            except UtilDBError as err:
-                # If this is a view and it fails dependency checking, save
-                # it and retry the view later, but only if we're not skipping
-                # tables.
-                if (obj[0] == _VIEW and "doesn't exist" in err.errmsg and
-                        not self.skip_tables):
-                    dependent_views.append(obj)
-                else:
-                    raise err
-
-            if obj[0] == _GRANT and not grant_msg_displayed:
-                grant_msg_displayed = True
-
-        # Now retry the views
-        if self.verbose and len(dependent_views) > 0:
-            print("# Attempting to create views that failed dependency "
-                  "checks on first pass.")
-        for obj in dependent_views:
-            # Drop object if --drop-first specified and database not dropped
-            if self.verbose:
-                print("#  Retrying view {0}".format(obj[1]))
-            if options.get("do_drop", False):
                 obj_name = quote_with_backticks(obj[1][0], dest_sql_mode)
                 self.__drop_object(obj[0], obj_name)
 
@@ -952,6 +919,8 @@ class Database(object):
                                  options.get("new_engine", None),
                                  options.get("def_engine", None))
 
+            if obj[0] == _GRANT and not grant_msg_displayed:
+                grant_msg_displayed = True
         # After object creation, add the constraints
         if self.constraints:
             self.__apply_constraints()
@@ -1047,8 +1016,7 @@ class Database(object):
         # set with SQL_MODE='NO_BACKSLASH_ESCAPES'
         prev_sql_mode = ''
         if (self.destination is not None and 'ANSI_QUOTES' in self.sql_mode and
-                'ANSI_QUOTES' not in
-                self.destination.select_variable("SQL_MODE")):
+            'ANSI_QUOTES' not in self.destination.select_variable("SQL_MODE")):
             prev_sql_mode = self.source.select_variable("SQL_MODE")
             self.source.exec_query("SET @@SESSION.SQL_MODE=''")
             self.sql_mode = ""
@@ -1675,7 +1643,6 @@ class Database(object):
         }
         pos_to_quote = ()
         pos_split_quote = ()
-        # pylint: disable=R0101
         if obj_type == _GRANT:
             query = _OBJECT_QUERY % (self.db_name, self.db_name,
                                      self.db_name, self.db_name)
@@ -1886,7 +1853,6 @@ class Database(object):
                             break
 
         # CREATE ROUTINE and EXECUTE are needed for functions
-        # pylint: disable=R0101
         if not options.get("skip_funcs", False):
             funcs = source_objects.get("funcs", None)
             if funcs:
@@ -1964,39 +1930,3 @@ class Database(object):
                                    priv[0]), -1, priv[0])
 
         return True
-
-    def check_auto_increment(self, tbl=None):
-        """Check for any tables in the database with auto_increment values
-        of 0. This will require a special sql_mode to copy or export. The
-        method returns True if any table has an auto_increment value of 0.
-        If tbl provided, use that table in the query otherwise check all
-        tables.
-
-        tbl[in]      If provided, use this table name
-
-        Returns True if any table has 0 in auto_increment, False if not
-        """
-        FIND_AUTO_INC_COLS = """
-            SELECT table_name, column_name FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE table_schema = '{0}' AND extra LIKE '%auto_increment%'
-        """
-        AUTO_INC_ZERO = "SELECT * FROM {0}.`{1}` WHERE {2} < 1;"
-        # Watchout for weird tick marks in the name
-        if self.db_name.count("`") > 0:
-            query = FIND_AUTO_INC_COLS.format(self.q_db_name)
-        else:
-            query = FIND_AUTO_INC_COLS.format(self.db_name)
-        if tbl:
-            query = "{0} AND table_name = '{1}'".format(query, tbl)
-        res = self.source.exec_query(query)
-        for row in res:
-            # Watchout for weird tick marks.
-            column = row[1]
-            # pylint: disable=W0125
-            if (i in row[1] for i in ('`', '"', "'")):
-                column = "`{0}`".format(row[1])
-            query = AUTO_INC_ZERO.format(self.q_db_name, row[0], column)
-            res = self.source.exec_query(query)
-            if res:
-                return True
-        return False

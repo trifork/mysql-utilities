@@ -96,7 +96,7 @@ class test(mutlib.System_test):
         res = mutlib.System_test.run_test_case(self, 1, cmd_str, comment)
         if not res:
             for row in self.results:
-                print row,
+                print(row)
             raise MUTLibError("{0}: failed".format(comment))
 
         self.mask_result("ERROR: The server",

@@ -124,7 +124,7 @@ class test(mutlib.System_test):
                       res_entry['unlock_fail'])
                 print("    locking step:", res_entry['lock_res'][0],
                       res_entry['lock_res'][1])
-                print ("  unlocking step:", res_entry['unlock_res'][0],
+                print("  unlocking step:", res_entry['unlock_res'][0],
                        res_entry['unlock_res'][1])
             test_num += 1
 

@@ -84,8 +84,8 @@ def to_sql(obj):
     Returns (string) converted value
     """
     to_sql.__dict__.setdefault('converter', MySQLConverter())
-    obj = to_sql.converter.escape(obj)  # pylint: disable=E1101
-    return str(to_sql.converter.quote(obj))  # pylint: disable=E1101
+    obj = to_sql.converter.escape(obj.encode('utf-8'))  # pylint: disable=E1101
+    return to_sql.converter.quote(obj).decode('utf-8')  # pylint: disable=E1101
 
 
 def quote_with_backticks(identifier, sql_mode=''):
@@ -132,7 +132,8 @@ def remove_backtick_quoting(identifier, sql_mode=''):
     """
     double_quoting = identifier.startswith('"') and identifier.endswith('"')
     # remove quotes
-    identifier = identifier[1:-1]
+    if (is_quoted_with_backticks(identifier)):
+        identifier = identifier[1:-1]
     if 'ANSI_QUOTES' in sql_mode and double_quoting:
         return identifier.replace('""', '"')
     else:
@@ -626,7 +627,7 @@ class SQLTransformer(object):
         if col_data[_COLUMN_DEFAULT] is not None:
             def_val = col_data[_COLUMN_DEFAULT]
             # add quotes if needed
-            if def_val.upper() != "CURRENT_TIMESTAMP":
+            if def_val.upper() != "CURRENT_TIMESTAMP" and def_val.upper() != "CURRENT_TIMESTAMP()":
                 def_val = to_sql(def_val)
             values['default'] = " DEFAULT %s" % def_val
         if len(col_data[_COLUMN_EXTRA]) > 0:
@@ -680,8 +681,8 @@ class SQLTransformer(object):
 
         # Check to see if previous column has been added. If it has,
         # don't include the BEFORE|AFTER - it will be ordered correctly.
-        if (src_loc_idx - 1 >= 0 and
-                source[src_loc_idx - 1][_COLUMN_NAME] in add_cols):
+        if (src_loc_idx - 1 >= 0
+           and source[src_loc_idx - 1][_COLUMN_NAME] in add_cols):
             return ""
 
         # compare ordinal position - if not the same find where it goes
@@ -747,7 +748,7 @@ class SQLTransformer(object):
             # Check for order changes
             if operation == _CHANGE_COL_ORDER:
                 if len(col_pos) > 0:
-                    colstr = "  CHANGE COLUMN %s %s %s%s" % \
+                    colstr = "  CHANGE COLUMN `%s` `%s` %s%s" % \
                              (source_def[_COLUMN_NAME],
                               source_def[_COLUMN_NAME],
                               col_fmt, col_pos)
@@ -758,7 +759,7 @@ class SQLTransformer(object):
                 colstr = "  ADD COLUMN %s %s%s" % (source_def[_COLUMN_NAME],
                                                    col_fmt, col_pos)
             else:  # must be change
-                colstr = "  CHANGE COLUMN %s %s " % \
+                colstr = "  CHANGE COLUMN `%s` `%s` " % \
                          (destination_def[_COLUMN_NAME],
                           destination_def[_COLUMN_NAME])
                 colstr += "%s%s" % (col_fmt, col_pos)
@@ -905,7 +906,7 @@ class SQLTransformer(object):
 
         # Generate Add foreign key clauses
         clause_fmt = "ADD CONSTRAINT %s FOREIGN KEY(%s) REFERENCES " + \
-                     "`%s`.`%s`(%s)"
+                     "`%s` (%s)"
         for fkey in add_rows:
             add_constraints.append(clause_fmt % fkey)
 
@@ -939,7 +940,7 @@ class SQLTransformer(object):
                 else:
                     if unique_name is None:
                         unique_name = key[2]
-                        unique_method = key[10]
+                        unique_method = key[9]
                         unique_setting = key[1]
                         unique_key_cols.append(key[4])
                     elif unique_name == key[2]:
@@ -950,7 +951,7 @@ class SQLTransformer(object):
                                                unique_key_cols))
                         unique_key_cols = []
                         unique_name = key[2]
-                        unique_method = key[10]
+                        unique_method = key[9]
                         unique_setting = key[1]
                         unique_key_cols.append(key[4])
 
@@ -1059,8 +1060,8 @@ class SQLTransformer(object):
         elif len(destination_row) == 0:
             return None
         elif len(destination_row) == 1:
-            if not (destination_row[0][3] is None and
-                    source_row[0][3] is None):
+            if not (destination_row[0][3] is None
+                    and source_row[0][3] is None):
                 part_changes_found = True
         else:
             part_stop = len(destination_row)
@@ -1262,7 +1263,7 @@ class SQLTransformer(object):
             {'fmt': " %s", 'col': _TRIGGER_EVENT, 'val': ""},
             # trigger table
             {'fmt': " ON %s." % self.destination[_TRIGGER_DB] +
-                    "%s FOR EACH ROW",
+             "%s FOR EACH ROW",
              'col': _TRIGGER_TABLE, 'val': ""},
             # trigger body
             {'fmt': " %s;", 'col': _TRIGGER_BODY, 'val': ""},
@@ -1358,8 +1359,7 @@ class SQLTransformer(object):
         # Only when doing create or modifications to the body
         if self.obj_type.upper() == "FUNCTION":
             if (do_create or
-                    (self.destination[_ROUTINE_BODY] !=
-                     self.source[_ROUTINE_BODY])):
+               self.destination[_ROUTINE_BODY] != self.source[_ROUTINE_BODY]):
                 statement_parts[5]['val'] = self.source[_ROUTINE_RETURNS]
             # Add deterministic
             if do_create:

@@ -19,7 +19,7 @@
 check_rpl_parameters test.
 """
 
-import check_rpl
+from mysql.utilities.command import check_rpl
 import mutlib
 
 from mysql.utilities.exception import MUTLibError
@@ -131,7 +131,7 @@ class test(check_rpl.test):
         cmd = "mysqlreplicate.py --rpl-user=rpl:rpl {0}".format(conn_str)
         try:
             self.exec_util(cmd, self.res_fname)
-        except MUTLibError, e:
+        except MUTLibError as e:
             raise MUTLibError(e.errmsg)
 
         test_num += 1

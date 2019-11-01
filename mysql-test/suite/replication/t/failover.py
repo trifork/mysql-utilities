@@ -499,7 +499,7 @@ class test(rpl_admin_gtid.test):
         #       timeout, the test case has failed and the log will contain
         #       the error.
         if self.debug:
-            print comment
+            print(comment)
 
         failover_cmd = ("python ../scripts/mysqlfailover.py --interval=10 "
                         " --discover-slaves-login=root:root --force "
@@ -507,14 +507,14 @@ class test(rpl_admin_gtid.test):
                             slave3_conn, FAILOVER_LOG.format('4')))
 
         if self.debug:
-            print failover_cmd
+            print(failover_cmd)
 
         # Launch the console in stealth mode
         proc, f_out = self.start_process(failover_cmd)
 
         # Wait for console to load
         if self.debug:
-            print "# Waiting for console to start."
+            print("# Waiting for console to start.")
         i = 1
         time.sleep(1)
         while proc.poll() is not None:
@@ -522,7 +522,7 @@ class test(rpl_admin_gtid.test):
             i += 1
             if i > _TIMEOUT:
                 if self.debug:
-                    print "# Timeout console to start."
+                    print("# Timeout console to start.")
                 raise MUTLibError("{0}: failed - timeout waiting for "
                                   "console to start.".format(comment))
 
@@ -530,14 +530,14 @@ class test(rpl_admin_gtid.test):
         self.stop_process(proc, f_out, True)
         # Wait for console to end
         if self.debug:
-            print "# Waiting for console to end."
+            print("# Waiting for console to end.")
         i = 0
         while proc.poll() is None:
             time.sleep(1)
             i += 1
             if i > _TIMEOUT:
                 if self.debug:
-                    print "# Timeout console to end."
+                    print("# Timeout console to end.")
                 raise MUTLibError("{0}: failed - timeout waiting for "
                                   "console to end.".format(comment))
 
@@ -565,7 +565,7 @@ class test(rpl_admin_gtid.test):
                 file_.seek(0)
                 for row in file_:
                     if len(row.strip()):
-                        print row,
+                        print(row)
 
         # Kill all remaining servers (to avoid problems for other tests).
         self.kill_server('rep_slave3_gtid')

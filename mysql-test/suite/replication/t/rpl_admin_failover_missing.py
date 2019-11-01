@@ -145,7 +145,7 @@ class test(rpl_admin.test):
             server.role)
         self.results.append(header)
         if self.debug:
-            print header
+            print(header)
         rows = server.exec_query("SELECT * FROM test_relay.t1")
         f_out = tempfile.TemporaryFile()
         format_tabular_list(f_out, ['a', 'b'], rows, {"separator": ","})
@@ -154,7 +154,7 @@ class test(rpl_admin.test):
             # Convert line terminator to '\n' for test to pass on Windows.
             self.results.append('{0}\n'.format(row.rstrip()))
             if self.debug:
-                print row,
+                print(row)
 
     def run(self):
         test_num = 1

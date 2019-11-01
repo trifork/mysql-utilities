@@ -47,7 +47,7 @@ class test(mutlib.System_test):
         self.drop_all()
         try:
             self.server1.read_and_exec_SQL(data_file, self.debug)
-        except MUTLibError, err:
+        except MUTLibError as err:
             raise MUTLibError(
                 "Failed to read commands from file {0}{1}: ".format(
                     data_file, err.errmsg))
@@ -69,7 +69,7 @@ class test(mutlib.System_test):
             comment = "Test case {0} - clone with locking={1}".format(test_num,
                                                                       locktype)
             if self.debug:
-                print comment
+                print(comment)
             self.drop_db(self.server1, "util_db_clone")
             cmd = ("mysqldbcopy.py --skip-gtid {0} {1} util_test:util_db_clone"
                    "  --drop-first --locking={2}".format(from_conn, to_conn,
@@ -77,7 +77,7 @@ class test(mutlib.System_test):
             try:
                 res = self.exec_util(cmd, self.res_fname)
                 self.results.append(res)
-            except MUTLibError, err:
+            except MUTLibError as err:
                 raise MUTLibError(err.errmsg)
 
         return True

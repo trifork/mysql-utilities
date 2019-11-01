@@ -162,6 +162,6 @@ class test(rpl_admin.test):
             os.unlink(_LOGNAME)
         except OSError:
             if self.debug:
-                print "# failed removing temporary log file {0}".format(
-                    _LOGNAME)
+                print("# failed removing temporary log file {0}".format(
+                    _LOGNAME))
         return rpl_admin.test.cleanup(self)

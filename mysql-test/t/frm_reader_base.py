@@ -95,8 +95,8 @@ class test(mutlib.System_test):
         exp_result[in]    Expected result.
         """
         if self.debug:
-            print comment
-            print "Running test for {0}".format(tablename)
+            print(comment)
+            print("Running test for {0}".format(tablename))
 
         self.results.append(comment)
         try:
@@ -110,7 +110,7 @@ class test(mutlib.System_test):
         if self.debug:
             with open(self.res_fname, 'r') as f:
                 for row in f:
-                    print row
+                    print(row)
 
         # Get the create statement
         create_table = self.server1.exec_query(
@@ -139,7 +139,7 @@ class test(mutlib.System_test):
             diff_str.append(line.strip('\n').rstrip(' '))
         if diff_str:
             for row in diff_str:
-                print row
+                print(row)
         file1.close()
 
         os.unlink(self.frm_output)

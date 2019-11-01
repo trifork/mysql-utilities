@@ -471,7 +471,7 @@ class Utilities(object):
                                   list_of_utilities, self.width)
         else:
             print
-            print "No utilities match the search term."
+            print("No utilities match the search term.")
         print
 
     def get_options_dictionary(self, utility_options):
@@ -549,7 +549,7 @@ def kill_process(pid, force=False, silent=False):
     pid [in]    Process id of the subprocess to kill.
     force [in]  Boolean value, if False try to kill process with SIGTERM
                 (Posix only) else kill it forcefully.
-    silent[in]  If true, do no print message
+    silent[in]  If true, do no print(message)
 
     Returns True if operation was successful and False otherwise.
     """
